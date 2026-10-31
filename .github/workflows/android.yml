@@ -1,0 +1,48 @@
+name: App Android (APK)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Pruebas de la base de ayudas
+        run: node src/test.js
+      - name: Generar la web
+        run: python3 build.py
+      - name: Copiar la web dentro de la app
+        run: cp web/index.html android/app/src/main/assets/index.html
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Compilar APK
+        run: gradle -p android assembleDebug --no-daemon
+      - name: Renombrar
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk Sello-a-Sello.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Sello-a-Sello-apk
+          path: Sello-a-Sello.apk
+      - name: Publicar en «Releases» para descargar desde el móvil
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete android -y --cleanup-tag || true
+          gh release create android Sello-a-Sello.apk \
+            --title "Sello a Sello para Android" \
+            --notes "Descarga **Sello-a-Sello.apk** desde el móvil Android, ábrela y permite «instalar apps de origen desconocido» si te lo pide."

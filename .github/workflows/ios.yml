@@ -1,0 +1,22 @@
+name: App iPhone (comprobar que compila)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ios:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generar la web
+        run: python3 build.py
+      - name: Crear proyecto Xcode
+        run: brew install xcodegen && cd ios && xcodegen generate
+      - name: Compilar para el simulador
+        run: |
+          cd ios
+          xcodebuild -project SelloASello.xcodeproj -scheme SelloASello \
+            -sdk iphonesimulator -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO build | tail -20

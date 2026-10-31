@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sello a Sello</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700;800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+/* Plan: expediente administrativo convertido en tablero de juego.
+   Cada nivel superado se gana con un sello de tinta; el radar cuenta ayudas en vivo. */
+:root {
+  --ink: #17223b;        /* tinta azul de documento oficial */
+  --paper: #f1f3f7;      /* papel de oficio frío */
+  --card: #ffffff;
+  --sello: #c43a2f;      /* rojo de sello de registro */
+  --oro: #e3a234;        /* monedas / ahorro */
+  --verde: #1d7f55;      /* plazo abierto */
+  --muted: #5a6478;
+  --line: #d6dbe5;
+  --soft: #e6eaf1;
+  --display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #e8ecf5; --paper: #0f1626; --card: #172137; --sello: #ec6a5c; --oro: #f0b64f; --verde: #4cc58e;
+    --muted: #9aa5bd; --line: #2a3651; --soft: #1e2a44; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #e8ecf5; --paper: #0f1626; --card: #172137; --sello: #ec6a5c; --oro: #f0b64f; --verde: #4cc58e;
+  --muted: #9aa5bd; --line: #2a3651; --soft: #1e2a44; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--paper); color: var(--ink); font-family: var(--body); font-size: 17px; line-height: 1.5;
+  background-image: radial-gradient(var(--line) 0.8px, transparent 0.8px); background-size: 22px 22px; min-height: 100%; }
+h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+button, input, select { font: inherit; color: inherit; }
+:focus-visible { outline: 3px solid var(--oro); outline-offset: 2px; }
+a { color: inherit; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+
+/* Barra superior */
+.top { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--paper) 88%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.top .wrap { display: flex; align-items: center; gap: 16px; padding-top: 10px; padding-bottom: 10px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 800; font-size: 18px; background: none; border: 0; cursor: pointer; padding: 0; }
+.brand svg { flex: none; }
+.radar { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); font-weight: 700; font-variant-numeric: tabular-nums; font-size: 15px; white-space: nowrap; }
+.pill .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--sello); }
+.pill.oro .dot { background: var(--oro); }
+.pop { animation: pop .45s ease; }
+@keyframes pop { 30% { transform: scale(1.18); } }
+
+/* Mapa de sellos */
+.mapa { display: flex; gap: 6px; align-items: center; padding: 14px 0 4px; overflow-x: auto; }
+.sellito { flex: none; width: 38px; height: 38px; border-radius: 50%; border: 2px dashed var(--line); display: grid; place-items: center; font-family: var(--display); font-size: 13px; color: var(--muted); background: var(--card); cursor: default; }
+.sellito.hecho { border: 2px solid var(--sello); color: var(--sello); transform: rotate(-8deg); background: color-mix(in srgb, var(--sello) 10%, var(--card)); cursor: pointer; }
+.sellito.actual { border: 2px solid var(--ink); color: var(--ink); }
+.tramo { flex: 1 0 12px; height: 2px; background: var(--line); min-width: 12px; }
+.tramo.hecho { background: var(--sello); }
+.xp { height: 8px; background: var(--soft); border-radius: 99px; overflow: hidden; margin: 6px 0 0; }
+.xp i { display: block; height: 100%; background: linear-gradient(90deg, var(--sello), var(--oro)); width: 0; transition: width .4s ease; }
+
+/* Inicio */
+.hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 32px; align-items: center; padding: 40px 0 24px; }
+.hero h1 { font-size: clamp(34px, 6vw, 62px); line-height: 1.02; font-weight: 800; }
+.hero h1 em { font-style: normal; color: var(--sello); }
+.hero p.lead { font-size: 19px; color: var(--muted); max-width: 52ch; }
+.stampbig { aspect-ratio: 1; max-width: 360px; width: 100%; justify-self: center; }
+.datos { display: flex; gap: 10px; flex-wrap: wrap; margin: 18px 0 0; }
+.datos span { font-size: 14px; padding: 4px 10px; border-radius: 6px; background: var(--soft); }
+.eligir { margin: 12px 0 40px; }
+.eligir h2 { font-size: 20px; margin-bottom: 14px; }
+.personajes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.pj { text-align: left; background: var(--card); border: 2px solid var(--line); border-radius: 16px; padding: 18px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: transform .15s, border-color .15s, box-shadow .15s; }
+.pj:hover { transform: translateY(-3px); border-color: var(--ink); box-shadow: 0 8px 0 -2px var(--line); }
+.pj b { font-family: var(--display); font-size: 17px; }
+.pj small { color: var(--muted); font-size: 14px; line-height: 1.35; }
+.pj svg { width: 52px; height: 52px; }
+
+/* Pregunta */
+.jugar { display: grid; grid-template-columns: 1fr 300px; gap: 24px; padding: 20px 0 48px; align-items: start; }
+.tablero { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 28px; box-shadow: 0 10px 0 -4px var(--line); min-height: 380px; display: flex; flex-direction: column; }
+.eyebrow { font-family: var(--display); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--sello); font-weight: 700; }
+.tablero h2 { font-size: clamp(22px, 3.4vw, 30px); margin: 8px 0 6px; line-height: 1.15; }
+.ayuda { color: var(--muted); margin: 0 0 20px; max-width: 62ch; }
+.opciones { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+.op { text-align: left; border: 2px solid var(--line); background: var(--paper); border-radius: 12px; padding: 12px 14px; cursor: pointer; display: flex; gap: 10px; align-items: flex-start; font-weight: 700; line-height: 1.3; }
+.op small { display: block; font-weight: 400; color: var(--muted); font-size: 14px; margin-top: 2px; }
+.op .k { flex: none; font-family: var(--display); font-size: 11px; border: 1.5px solid var(--line); border-radius: 6px; padding: 2px 6px; color: var(--muted); margin-top: 1px; }
+.op:hover { border-color: var(--ink); }
+.op[aria-pressed="true"] { border-color: var(--sello); background: color-mix(in srgb, var(--sello) 9%, var(--card)); }
+.op[aria-pressed="true"] .k { background: var(--sello); border-color: var(--sello); color: #fff; }
+.ccaa { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+.ccaa .op { padding: 10px 12px; font-size: 15px; }
+.num { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.num button { width: 48px; height: 48px; border-radius: 12px; border: 2px solid var(--line); background: var(--paper); font-size: 24px; font-weight: 700; cursor: pointer; }
+.num input { width: 120px; height: 48px; text-align: center; font-family: var(--display); font-size: 24px; border: 2px solid var(--line); border-radius: 12px; background: var(--paper); font-variant-numeric: tabular-nums; }
+.steppers { display: grid; gap: 14px; }
+.steppers .fila { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); flex-wrap: wrap; }
+.steppers .num input { width: 72px; }
+.slider { display: grid; gap: 10px; }
+.slider output { font-family: var(--display); font-size: clamp(30px, 5vw, 44px); font-variant-numeric: tabular-nums; color: var(--ink); }
+.slider .mes { color: var(--muted); }
+input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
+.marcas { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+.texto { width: 100%; max-width: 420px; height: 48px; border: 2px solid var(--line); border-radius: 12px; padding: 0 14px; background: var(--paper); }
+.acciones { margin-top: auto; padding-top: 24px; display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.btn { border: 0; border-radius: 12px; padding: 13px 22px; font-weight: 700; cursor: pointer; font-size: 16px; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.btn.pri { background: var(--ink); color: var(--paper); box-shadow: 0 4px 0 var(--sello); }
+.btn.pri:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--sello); }
+.btn.pri[disabled] { opacity: .4; cursor: not-allowed; }
+.btn.sec { background: transparent; border: 2px solid var(--line); }
+.btn.link { background: none; padding: 8px 4px; color: var(--muted); text-decoration: underline; }
+.lado { position: sticky; top: 140px; display: grid; gap: 14px; }
+.panel { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; }
+.panel h3 { font-size: 14px; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 10px; color: var(--muted); }
+.bignum { font-family: var(--display); font-size: 40px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+.bignum.oro { color: var(--oro); }
+.mini { list-style: none; padding: 0; margin: 10px 0 0; display: grid; gap: 6px; font-size: 14px; }
+.mini li { display: flex; gap: 8px; align-items: baseline; }
+.mini li::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 2px; background: var(--sello); transform: rotate(45deg) translateY(-1px); }
+.ficha { font-size: 14px; display: grid; gap: 4px; color: var(--muted); }
+.ficha b { color: var(--ink); }
+
+/* Sello conseguido */
+.overlay { position: fixed; inset: 0; display: grid; place-items: center; background: color-mix(in srgb, var(--paper) 70%, transparent); z-index: 20; pointer-events: none; }
+.overlay .golpe { text-align: center; animation: golpe .9s cubic-bezier(.2,1.6,.4,1) both; }
+.overlay .golpe svg { width: 200px; height: 200px; }
+.overlay .golpe p { font-family: var(--display); font-weight: 800; font-size: 22px; color: var(--sello); margin: 6px 0 0; }
+@keyframes golpe { 0% { transform: scale(2.4) rotate(-20deg); opacity: 0; } 55% { transform: scale(.94) rotate(-9deg); opacity: 1; } 100% { transform: scale(1) rotate(-9deg); opacity: 1; } }
+
+/* Resultados */
+.res-hero { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: center; padding: 28px 0 8px; }
+.res-hero h1 { font-size: clamp(28px, 4.5vw, 44px); line-height: 1.08; }
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 20px 0; }
+.kpi { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
+.kpi .v { font-family: var(--display); font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.kpi .l { font-size: 14px; color: var(--muted); }
+.urgente { border: 2px solid var(--sello); background: color-mix(in srgb, var(--sello) 8%, var(--card)); border-radius: 14px; padding: 14px 18px; margin-bottom: 16px; }
+.urgente b { color: var(--sello); }
+.filtros { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0 16px; }
+.filtros button { border: 2px solid var(--line); background: var(--card); border-radius: 999px; padding: 7px 14px; cursor: pointer; font-weight: 700; font-size: 15px; }
+.filtros button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.lista { display: grid; gap: 12px; }
+.ay { background: var(--card); border: 1px solid var(--line); border-radius: 16px; overflow: hidden; border-left: 6px solid var(--line); }
+.ay.e-abierta { border-left-color: var(--verde); }
+.ay.e-siempre, .ay.e-renta { border-left-color: var(--ink); }
+.ay.e-consultar { border-left-color: var(--oro); }
+.ay.e-cerrada, .ay.e-proxima { border-left-color: var(--muted); }
+.ay summary { list-style: none; cursor: pointer; padding: 16px 18px; display: grid; grid-template-columns: 1fr auto; gap: 6px 16px; }
+.ay summary::-webkit-details-marker { display: none; }
+.ay h3 { font-size: 17px; line-height: 1.25; }
+.ay .org { color: var(--muted); font-size: 14px; }
+.ay .imp { font-family: var(--display); font-weight: 800; font-size: 18px; text-align: right; color: var(--oro); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ay .imp small { display: block; font-family: var(--body); font-weight: 400; font-size: 12px; color: var(--muted); }
+.tags { display: flex; gap: 6px; flex-wrap: wrap; grid-column: 1 / -1; }
+.tag { font-size: 13px; font-weight: 700; padding: 3px 9px; border-radius: 6px; background: var(--soft); }
+.tag.abierta { background: color-mix(in srgb, var(--verde) 16%, var(--card)); color: var(--verde); }
+.tag.cerrada, .tag.proxima { background: var(--soft); color: var(--muted); }
+.tag.consultar { background: color-mix(in srgb, var(--oro) 20%, var(--card)); }
+.tag.alta { background: var(--ink); color: var(--paper); }
+.ay .cuerpo { padding: 0 18px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px 28px; border-top: 1px dashed var(--line); padding-top: 16px; }
+.ay .cuerpo h4 { font-family: var(--display); font-size: 13px; text-transform: uppercase; letter-spacing: .05em; margin: 0 0 8px; color: var(--sello); }
+.ay .cuerpo ul, .ay .cuerpo ol { margin: 0; padding-left: 20px; display: grid; gap: 4px; }
+.ay .cuerpo .full { grid-column: 1 / -1; }
+.why { background: var(--soft); border-radius: 10px; padding: 10px 14px; }
+.docs { list-style: none; padding: 0 !important; }
+.docs label { display: flex; gap: 10px; align-items: flex-start; cursor: pointer; }
+.docs input { width: 20px; height: 20px; accent-color: var(--verde); flex: none; margin-top: 2px; }
+.docs input:checked + span { text-decoration: line-through; color: var(--muted); }
+.progreso { font-size: 13px; color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; font-family: var(--body); }
+.pie { font-size: 13px; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; }
+.mas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 28px 0; }
+.mas a { display: block; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; text-decoration: none; }
+.mas a b { display: block; }
+.mas a span { font-size: 14px; color: var(--muted); }
+.plan textarea { width: 100%; min-height: 180px; border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: var(--paper); font-family: ui-monospace, Menlo, monospace; font-size: 13px; }
+.aviso { font-size: 14px; color: var(--muted); border-top: 1px solid var(--line); padding: 18px 0 40px; margin-top: 24px; max-width: 80ch; }
+.vacio { padding: 24px; text-align: center; color: var(--muted); }
+
+/* Juego: partículas, puntos, avisos */
+.star { position: fixed; z-index: 30; width: 18px; height: 18px; pointer-events: none; left: 0; top: 0;
+  animation: estrella .75s cubic-bezier(.15,.7,.3,1) forwards; }
+@keyframes estrella { 0% { transform: translate(var(--x0), var(--y0)) scale(.3) rotate(0); opacity: 1; }
+  100% { transform: translate(calc(var(--x0) + var(--dx)), calc(var(--y0) + var(--dy))) scale(1) rotate(var(--r)); opacity: 0; } }
+.mas1 { position: fixed; z-index: 31; pointer-events: none; font-family: var(--display); font-weight: 800; color: var(--oro); font-size: 20px; animation: sube .9s ease-out forwards; text-shadow: 0 2px 0 var(--card); }
+@keyframes sube { from { transform: translate(-50%, 0); opacity: 1; } to { transform: translate(-50%, -60px); opacity: 0; } }
+.toasts { position: fixed; right: 16px; bottom: 16px; z-index: 32; display: grid; gap: 8px; max-width: min(360px, calc(100vw - 32px)); }
+.toast { background: var(--ink); color: var(--paper); border-radius: 14px; padding: 12px 16px; display: flex; gap: 12px; align-items: center; box-shadow: 0 8px 24px rgba(0,0,0,.25); animation: entra .35s cubic-bezier(.2,1.4,.4,1), sale .4s ease 2.6s forwards; font-size: 15px; }
+.toast b { font-family: var(--display); font-size: 12px; letter-spacing: .06em; text-transform: uppercase; color: var(--oro); display: block; }
+.toast svg { flex: none; width: 34px; height: 34px; }
+@keyframes entra { from { transform: translateY(20px) scale(.9); opacity: 0; } }
+@keyframes sale { to { transform: translateX(30px); opacity: 0; } }
+.tablero.entra { animation: pantalla .38s cubic-bezier(.2,.9,.3,1); }
+@keyframes pantalla { from { transform: translateX(40px); opacity: 0; } }
+.racha { font-family: var(--display); font-size: 12px; font-weight: 700; color: var(--paper); background: var(--sello); border-radius: 6px; padding: 3px 8px; margin-left: 8px; vertical-align: middle; letter-spacing: .04em; }
+.icono { width: 40px; height: 40px; padding: 0; display: grid; place-items: center; border-radius: 999px; border: 1px solid var(--line); background: var(--card); cursor: pointer; }
+.icono svg { width: 20px; height: 20px; }
+
+/* Pantalla de análisis y pantalla final (mundo nocturno, fijo en ambos temas) */
+.escena { position: fixed; inset: 0; z-index: 15; background: #0b1222; color: #eef2fb; overflow: auto; color-scheme: dark;
+  background-image: radial-gradient(rgba(255,255,255,.08) 1px, transparent 1px), radial-gradient(circle at 50% 0%, #1d2a4d 0%, #0b1222 60%); background-size: 26px 26px, 100% 100%; }
+.escena .in { max-width: 760px; margin: 0 auto; padding: 48px 20px 40px; min-height: 100%; display: flex; flex-direction: column; gap: 22px; justify-content: center; }
+.escena h1 { font-size: clamp(30px, 6vw, 56px); line-height: 1.02; text-align: center; }
+.escena .sub { text-align: center; color: #a9b5d3; margin: 0; }
+.barra { height: 22px; border-radius: 99px; background: #1b2644; border: 2px solid #34436b; overflow: hidden; }
+.barra i { display: block; height: 100%; width: 0; background: repeating-linear-gradient(-45deg, #e3a234 0 14px, #f0c060 14px 28px); transition: width .25s linear; }
+.reloj { display: flex; justify-content: space-between; font-family: var(--display); font-size: 14px; color: #a9b5d3; font-variant-numeric: tabular-nums; }
+.log { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; min-height: 260px; }
+.log li { display: flex; gap: 12px; align-items: baseline; animation: entra .3s ease; font-size: 16px; }
+.log li .ok { flex: none; font-family: var(--display); font-size: 12px; color: #0b1222; background: #4cc58e; border-radius: 6px; padding: 2px 7px; }
+.log li .n { margin-left: auto; font-family: var(--display); color: #f0b64f; white-space: nowrap; }
+.saltar { align-self: center; background: none; border: 1px solid #34436b; color: #a9b5d3; border-radius: 999px; padding: 8px 18px; cursor: pointer; }
+.final .titulo { font-family: var(--display); font-weight: 800; text-align: center; font-size: clamp(36px, 8vw, 76px); line-height: .95; letter-spacing: -.02em;
+  background: linear-gradient(180deg, #fff 0%, #f0c060 100%); -webkit-background-clip: text; background-clip: text; color: transparent; animation: golpe2 .8s cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes golpe2 { from { transform: scale(2); opacity: 0; } }
+.estrellas { display: flex; justify-content: center; gap: 10px; }
+.estrellas svg { width: 64px; height: 64px; opacity: .18; }
+.estrellas svg.on { opacity: 1; animation: golpe2 .5s cubic-bezier(.2,1.6,.4,1) both; }
+.marcador { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.marcador div { border: 1px solid #34436b; border-radius: 14px; padding: 12px; text-align: center; background: rgba(255,255,255,.03); }
+.marcador b { display: block; font-family: var(--display); font-size: clamp(22px, 4vw, 34px); font-variant-numeric: tabular-nums; color: #f0b64f; }
+.marcador span { font-size: 13px; color: #a9b5d3; }
+.rango { text-align: center; font-family: var(--display); font-size: 15px; letter-spacing: .1em; text-transform: uppercase; color: #ec6a5c; }
+.menu { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.menu button { width: 100%; text-align: left; background: transparent; border: 2px solid transparent; color: #eef2fb; border-radius: 12px; padding: 12px 16px 12px 40px; font-family: var(--display); font-size: clamp(15px, 2.4vw, 18px); cursor: pointer; position: relative; display: flex; justify-content: space-between; gap: 12px; }
+.menu button small { font-family: var(--body); font-size: 14px; color: #a9b5d3; font-weight: 400; }
+.menu button::before { content: "▶"; position: absolute; left: 14px; color: #f0b64f; opacity: 0; transition: opacity .1s; }
+.menu button:hover, .menu button:focus-visible, .menu button.sel { border-color: #f0b64f; background: rgba(240,182,79,.08); outline: none; }
+.menu button:hover::before, .menu button:focus-visible::before, .menu button.sel::before { opacity: 1; animation: parpadea 1s steps(2) infinite; }
+@keyframes parpadea { 50% { opacity: 0; } }
+.pista { text-align: center; font-size: 13px; color: #7f8bab; margin: 0; }
+.volver { margin: 18px 0 0; }
+.doclista { display: grid; gap: 10px; }
+.doclista label { display: flex; gap: 12px; align-items: flex-start; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; cursor: pointer; }
+.doclista input { width: 22px; height: 22px; accent-color: var(--verde); flex: none; margin-top: 2px; }
+.doclista small { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+.doclista input:checked + span > span { text-decoration: line-through; color: var(--muted); }
+
+/* Robot guía */
+.guia { display: flex; gap: 14px; align-items: flex-end; margin: 0 0 14px; }
+.robot { flex: none; width: 92px; height: 112px; }
+.robot .ojo-p { transition: transform .3s ease; }
+.robot .parpado { transform-origin: center; transform-box: fill-box; animation: parpadeo 4.2s infinite; }
+@keyframes parpadeo { 0%, 92%, 100% { transform: scaleY(0); } 95% { transform: scaleY(1); } }
+.robot .led { animation: led 2.4s ease-in-out infinite; }
+@keyframes led { 50% { opacity: .35; } }
+.robot .cuerpo-r { transform-origin: 50% 100%; animation: flota 3.2s ease-in-out infinite; }
+@keyframes flota { 50% { transform: translateY(-3px); } }
+.robot.habla .boca { animation: habla .18s steps(2) infinite; }
+@keyframes habla { 50% { transform: scaleY(.3); } }
+.robot .boca { transform-origin: center; transform-box: fill-box; }
+.robot.feliz .ojo-f { display: block; } .robot .ojo-f { display: none; }
+.robot.feliz .ojo-n { display: none; }
+.robot.celebra .cuerpo-r { animation: salta .5s cubic-bezier(.3,1.6,.5,1) 3; }
+@keyframes salta { 40% { transform: translateY(-14px) rotate(-4deg); } }
+.robot.piensa .ojo-p { transform: translate(2px, -3px); }
+.robot.piensa .led { animation-duration: .6s; }
+.bocadillo { position: relative; background: var(--card); border: 2px solid var(--ink); border-radius: 16px 16px 16px 4px; padding: 12px 16px; font-size: 16px; line-height: 1.45; max-width: 640px; box-shadow: 0 4px 0 var(--line); min-height: 52px; }
+.bocadillo b.nombre { display: block; font-family: var(--display); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--sello); margin-bottom: 2px; }
+.bocadillo::before { content: ""; position: absolute; left: -11px; bottom: 10px; border: 9px solid transparent; border-right-color: var(--ink); border-left: 0; }
+.escena .bocadillo { background: #172137; border-color: #f0b64f; color: #eef2fb; box-shadow: none; }
+.escena .bocadillo::before { border-right-color: #f0b64f; }
+.escena .guia { justify-content: center; }
+.hero .guia { margin-top: 20px; }
+
+@media (max-width: 860px) {
+  .hero, .jugar, .res-hero { grid-template-columns: 1fr; }
+  .stampbig { max-width: 140px; order: -1; justify-self: start; }
+  .hero { padding-top: 20px; gap: 12px; }
+  .personajes { grid-template-columns: repeat(2, 1fr); }
+  .lado { position: static; }
+  .kpis { grid-template-columns: repeat(2, 1fr); }
+  .ay .cuerpo { grid-template-columns: 1fr; }
+  .mas { grid-template-columns: 1fr; }
+  .res-hero svg { width: 110px; height: 110px; }
+}
+@media (max-width: 420px) {
+  .robot { width: 66px; height: 80px; }
+  .bocadillo { font-size: 15px; }
+  .personajes { grid-template-columns: 1fr; }
+  .tablero { padding: 20px; }
+  .radar .pill:nth-child(2) { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .star, .mas1 { display: none; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <button class="brand" id="home" type="button" aria-label="Volver al inicio">
+      <svg width="34" height="34" viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="none" stroke="currentColor" stroke-width="3"/><circle cx="20" cy="20" r="11.5" fill="none" stroke="var(--sello)" stroke-width="2" stroke-dasharray="3 2.4"/><path d="M13 21l5 5 9-11" fill="none" stroke="var(--sello)" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Sello a Sello
+    </button>
+    <div class="radar" aria-live="polite">
+      <span class="pill" id="pAyudas"><span class="dot"></span><span id="nAyudas">0</span>&nbsp;ayudas</span>
+      <span class="pill oro" id="pEuros"><span class="dot"></span><span id="nEuros">0 €</span>/año</span>
+      <span class="pill" id="pPts" title="Puntos"><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6z" fill="var(--oro)"/></svg><span id="nPts">0</span></span>
+      <button class="icono" id="mute" type="button" aria-label="Silenciar sonido"></button>
+    </div>
+  </div>
+</header>
+<main class="wrap" id="app"></main>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+/*KB*/
+</script>
+<script>
+(function () {
+  "use strict";
+  const $ = (s, el = document) => el.querySelector(s);
+  const app = $("#app");
+  const eur = n => (n || 0).toLocaleString("es-ES", { maximumFractionDigits: 0 }) + " €";
+  const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const yesno = [{ v: true, t: "Sí" }, { v: false, t: "No" }];
+  const reduce = () => window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ── Sonido (sintetizado con Web Audio, sin archivos) ──
+  const SND = (() => {
+    let ctx = null, on = true;
+    try { on = localStorage.getItem("sas-sonido") !== "off"; } catch (e) {}
+    const ac = () => { if (!ctx) { const C = window.AudioContext || window.webkitAudioContext; if (C) ctx = new C(); } if (ctx && ctx.state === "suspended") ctx.resume(); return ctx; };
+    function nota(f, t0, dur, tipo = "sine", vol = .16, f2) {
+      const c = ac(); if (!c || !on) return;
+      const o = c.createOscillator(), g = c.createGain(), t = c.currentTime + t0;
+      o.type = tipo; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+      g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + .012); g.gain.exponentialRampToValueAtTime(.0008, t + dur);
+      o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + .02);
+    }
+    return {
+      get on() { return on; },
+      toggle() { on = !on; try { localStorage.setItem("sas-sonido", on ? "on" : "off"); } catch (e) {} if (on) this.ok(); },
+      ok(racha = 0) { const b = 660 * Math.pow(1.06, Math.min(racha, 8)); nota(b, 0, .09, "triangle", .14); nota(b * 1.5, .07, .16, "triangle", .12); nota(b * 3, .12, .22, "sine", .05); },
+      pasar() { nota(320, 0, .18, "sine", .05, 900); },
+      moneda() { nota(988, 0, .08, "square", .06); nota(1319, .08, .3, "square", .06); },
+      nivel() { [523, 659, 784, 1047].forEach((f, i) => nota(f, i * .09, .22, "triangle", .14)); nota(1047, .38, .5, "sine", .08); },
+      tic() { nota(1500, 0, .03, "square", .025); },
+      victoria() { [392, 523, 659, 784, 659, 784, 1047].forEach((f, i) => nota(f, i * .11, i === 6 ? .9 : .16, "triangle", .15)); [523, 659, 784].forEach(f => nota(f, .77, 1, "sine", .06)); },
+      menu() { nota(880, 0, .05, "square", .03); },
+      voz() { [0, .07, .14].forEach((t, i) => nota(520 + i * 140 + Math.random() * 80, t, .06, "sine", .05)); }
+    };
+  })();
+
+  // ── Robot guía «Tico» (ilustración propia) ──
+  const ROBOT = `<svg class="robot" viewBox="0 0 120 146" role="img" aria-label="Tico, tu robot guía">
+    <g class="cuerpo-r">
+      <path d="M30 104c0-12 13-20 30-20s30 8 30 20v30c0 6-5 10-11 10H41c-6 0-11-4-11-10z" fill="#f4f6fa" stroke="#c9d1df" stroke-width="2"/>
+      <rect x="44" y="104" width="32" height="22" rx="5" fill="#17223b"/><path d="M50 116l6 5 11-11" fill="none" stroke="#e3a234" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path class="led" d="M35 100q-3 10 0 22M85 100q3 10 0 22" fill="none" stroke="#38b6ff" stroke-width="3" stroke-linecap="round"/>
+      <rect x="54" y="74" width="12" height="12" rx="4" fill="#dfe4ee"/>
+      <path d="M60 6C30 6 16 26 16 46c0 22 18 34 44 34s44-12 44-34C104 26 90 6 60 6z" fill="#fbfcfe" stroke="#c9d1df" stroke-width="2"/>
+      <path d="M28 26q32-12 64 0" fill="none" stroke="#e1e6ef" stroke-width="2"/><circle cx="60" cy="20" r="2" fill="#17223b"/>
+      <path class="led" d="M101 36q4 10 0 22M19 36q-4 10 0 22" fill="none" stroke="#38b6ff" stroke-width="3.5" stroke-linecap="round"/>
+      <g class="ojo-n">
+        <ellipse cx="42" cy="44" rx="13" ry="12" fill="#ffffff" stroke="#bfe6ff" stroke-width="3"/><ellipse cx="78" cy="44" rx="13" ry="12" fill="#ffffff" stroke="#bfe6ff" stroke-width="3"/>
+        <g class="ojo-p"><circle cx="43" cy="45" r="8" fill="#0f1830"/><circle cx="79" cy="45" r="8" fill="#0f1830"/><circle cx="46" cy="42" r="2.4" fill="#fff"/><circle cx="82" cy="42" r="2.4" fill="#fff"/></g>
+        <ellipse class="parpado" cx="42" cy="44" rx="14" ry="13" fill="#fbfcfe"/><ellipse class="parpado" cx="78" cy="44" rx="14" ry="13" fill="#fbfcfe"/>
+      </g>
+      <g class="ojo-f" fill="none" stroke="#0f1830" stroke-width="4" stroke-linecap="round"><path d="M33 47q9-10 18 0"/><path d="M69 47q9-10 18 0"/></g>
+      <path class="boca" d="M54 63q6 5 12 0" fill="none" stroke="#17223b" stroke-width="3" stroke-linecap="round"/>
+    </g></svg>`;
+  function guiaHTML(id, texto, modo = "") {
+    return `<div class="guia" id="${id}">${ROBOT.replace('class="robot"', `class="robot ${modo}"`)}<div class="bocadillo" aria-live="polite"><b class="nombre">Tico · tu guía</b><span class="txt">${esc(texto)}</span></div></div>`;
+  }
+  let timerHabla = null;
+  function decir(texto, modo, id = "guia") {
+    const g = document.getElementById(id); if (!g) return;
+    const r = g.querySelector(".robot"), t = g.querySelector(".txt");
+    r.classList.remove("feliz", "celebra", "piensa"); if (modo) modo.split(" ").forEach(m => r.classList.add(m));
+    clearInterval(timerHabla);
+    if (reduce()) { t.textContent = texto; return; }
+    let i = 0; t.textContent = ""; r.classList.add("habla"); SND.voz();
+    timerHabla = setInterval(() => {
+      i += 2; t.textContent = texto.slice(0, i);
+      if (i >= texto.length) { clearInterval(timerHabla); r.classList.remove("habla"); }
+    }, 22);
+  }
+  const ANIMOS = ["¡Genial, anotado!", "¡Perfecto! Seguimos.", "Muy bien, ya casi lo tienes.", "¡Eso me ayuda mucho!", "Apuntado en tu expediente."];
+
+  // ── Efectos visuales ──
+  const STAR = '<svg viewBox="0 0 24 24"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6z" fill="COL"/></svg>';
+  function estrellas(el, n = 12) {
+    if (reduce() || !el) return;
+    const r = el.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+    const cols = ["#e3a234", "#f0c060", "#c43a2f", "#ffffff"];
+    for (let i = 0; i < n; i++) {
+      const s = document.createElement("span"); s.className = "star";
+      const ang = (Math.PI * 2 * i) / n + Math.random() * .5, d = 60 + Math.random() * 90;
+      s.style.cssText = `--x0:${cx - 9}px;--y0:${cy - 9}px;--dx:${Math.cos(ang) * d}px;--dy:${Math.sin(ang) * d}px;--r:${Math.random() * 360}deg;width:${10 + Math.random() * 14}px;height:auto`;
+      s.innerHTML = STAR.replace("COL", cols[i % cols.length]);
+      document.body.appendChild(s); setTimeout(() => s.remove(), 800);
+    }
+  }
+  function flotante(el, txt) {
+    if (reduce() || !el) return;
+    const r = el.getBoundingClientRect(), f = document.createElement("span");
+    f.className = "mas1"; f.textContent = txt; f.style.left = r.left + r.width / 2 + "px"; f.style.top = r.top - 8 + "px";
+    document.body.appendChild(f); setTimeout(() => f.remove(), 950);
+  }
+  function aviso(titulo, txt) {
+    const t = document.createElement("div"); t.className = "toast";
+    t.innerHTML = `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="17" fill="#e3a234"/><text x="20" y="27" text-anchor="middle" font-family="Unbounded, sans-serif" font-weight="800" font-size="18" fill="#17223b">€</text></svg><span><b>${esc(titulo)}</b>${esc(txt)}</span>`;
+    $("#toasts").appendChild(t); setTimeout(() => t.remove(), 3100);
+    while ($("#toasts").children.length > 3) $("#toasts").firstChild.remove();
+  }
+  const ICO_ON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 010 7M18.5 6a8.5 8.5 0 010 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  const ICO_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path d="M16 9l6 6M22 9l-6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+  function pintaMute() { const b = $("#mute"); b.innerHTML = SND.on ? ICO_ON : ICO_OFF; b.setAttribute("aria-label", SND.on ? "Silenciar sonido" : "Activar sonido"); b.setAttribute("aria-pressed", String(!SND.on)); }
+
+  // ── Iconos SVG ──
+  const IC = {
+    persona: '<svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="17" r="9" fill="var(--sello)"/><path d="M9 46c2-10 9-15 17-15s15 5 17 15" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linecap="round"/></svg>',
+    familia: '<svg viewBox="0 0 52 52" aria-hidden="true"><circle cx="17" cy="15" r="7" fill="var(--sello)"/><circle cx="35" cy="15" r="7" fill="var(--ink)"/><circle cx="26" cy="29" r="5" fill="var(--oro)"/><path d="M5 46c1-8 6-13 12-13M47 46c-1-8-6-13-12-13M17 47c1-5 5-8 9-8s8 3 9 8" fill="none" stroke="var(--ink)" stroke-width="3.6" stroke-linecap="round"/></svg>',
+    asociacion: '<svg viewBox="0 0 52 52" aria-hidden="true"><path d="M26 44S7 33 7 19c0-6 5-10 10-10 4 0 7 2 9 5 2-3 5-5 9-5 5 0 10 4 10 10 0 14-19 25-19 25z" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round"/><path d="M18 24h16M26 16v16" stroke="var(--sello)" stroke-width="4" stroke-linecap="round"/></svg>',
+    empresa: '<svg viewBox="0 0 52 52" aria-hidden="true"><path d="M26 6c8 6 11 15 9 26H17C15 21 18 12 26 6z" fill="none" stroke="var(--ink)" stroke-width="4" stroke-linejoin="round"/><circle cx="26" cy="20" r="4" fill="var(--sello)"/><path d="M17 32l-6 8h8M35 32l6 8h-8M22 38l4 8 4-8" fill="none" stroke="var(--oro)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+  };
+  function selloSVG(txt, n) {
+    while (txt.length < 34) txt += txt;
+    txt = txt.slice(0, 48);
+    return `<svg viewBox="0 0 200 200" aria-hidden="true"><defs><path id="c${n}" d="M100,100 m-70,0 a70,70 0 1,1 140,0 a70,70 0 1,1 -140,0"/></defs>
+      <circle cx="100" cy="100" r="92" fill="none" stroke="var(--sello)" stroke-width="7"/>
+      <circle cx="100" cy="100" r="80" fill="none" stroke="var(--sello)" stroke-width="2"/>
+      <text font-family="Unbounded, sans-serif" font-size="15" font-weight="700" fill="var(--sello)" letter-spacing="3"><textPath href="#c${n}">${esc(txt)}</textPath></text>
+      <circle cx="100" cy="100" r="46" fill="none" stroke="var(--sello)" stroke-width="2" stroke-dasharray="5 4"/>
+      <path d="M76 102l16 16 34-38" fill="none" stroke="var(--sello)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  }
+
+  // ── Opciones ──
+  const CCAA_OPTS = Object.entries(KB.CCAA).map(([v, c]) => ({ v, t: c.n }));
+  const ANIO = KB.IND.anio;
+
+  // ── Niveles y preguntas ──
+  // tipo: chips | multi | num | slider | ccaa | steppers | texto
+  const NIV = {
+    hogar: [
+      { t: "Quién eres", q: [
+        { g: "¡Hola! Soy Tico y te acompaño hasta el final. Empezamos por tu año de nacimiento: con la edad ya descarto o desbloqueo muchas ayudas.", id: "anioNac", tipo: "num", txt: "¿En qué año naciste?", ayuda: "La edad abre o cierra muchas ayudas: bono alquiler joven, IMV, Garantía Juvenil, pensiones…", min: 1920, max: ANIO - 14, def: 1990, suf: v => `Tienes unos ${ANIO - v} años` },
+        { g: "Algunas ayudas piden llevar un tiempo en España. Elige la opción que mejor encaje, sin miedo: solo sirve para orientarte.", id: "residencia", tipo: "chips", txt: "¿Cuánto tiempo llevas viviendo legalmente en España?", ayuda: "Muchas prestaciones piden residencia mínima: 1 año para el IMV, 10 para la pensión no contributiva.", op: [{ v: "menos1", t: "Menos de 1 año" }, { v: "1a2", t: "1 a 2 años" }, { v: "2a5", t: "2 a 5 años" }, { v: "5a10", t: "5 a 10 años" }, { v: "mas10", t: "Más de 10 años o toda la vida" }] }
+      ]},
+      { t: "Dónde vives", q: [
+        { g: "Ahora tu comunidad. Cada una tiene su renta mínima y sus convocatorias, así que es una pregunta clave.", id: "ccaa", tipo: "ccaa", txt: "¿En qué comunidad autónoma estás empadronado?", ayuda: "Las rentas mínimas, ayudas al alquiler, comedor o cuota cero dependen de tu comunidad.", op: CCAA_OPTS },
+        { id: "municipio", tipo: "texto", txt: "¿Y tu municipio?", ayuda: "Opcional. Lo usamos para prepararte búsquedas de ayudas de tu ayuntamiento.", ph: "Ej.: Getafe", opcional: true },
+        { id: "municipioPequeno", tipo: "chips", txt: "¿Tu municipio tiene menos de 5.000 habitantes?", ayuda: "Los pueblos pequeños tienen ayudas extra (recarga eléctrica, deducciones por despoblación).", op: [{ v: true, t: "Sí, es un pueblo pequeño" }, { v: false, t: "No" }, { v: false, t: "No lo sé", k: "nose" }] }
+      ]},
+      { t: "Tu hogar", q: [
+        { g: "Cuéntame quién vive contigo. Cuantas más personas, más alto es el límite de ingresos de muchas ayudas.", id: "adultos", tipo: "num", txt: "¿Cuántos adultos vivís en casa (contándote)?", ayuda: "Los mayores de 18 años empadronados contigo.", min: 1, max: 10, def: 1 },
+        { g: "Los peques cuentan mucho: hay ayudas solo para menores de 3 años. Usa los botones + y −.", id: "hijos", tipo: "steppers", txt: "¿Cuántos menores de 18 años viven contigo?", ayuda: "Por edades: algunas ayudas son solo para menores de 3 años.", filas: [{ id: "m0_3", t: "De 0 a 2 años" }, { id: "m3_6", t: "De 3 a 5 años" }, { id: "m6_18", t: "De 6 a 17 años" }] },
+        { id: "monoparental", tipo: "chips", txt: "¿Eres la única persona adulta a cargo de los niños?", ayuda: "Las familias monoparentales tienen complementos propios (IMV +22 %, bono social, deducciones).", op: yesno, show: p => p.menores > 0 },
+        { id: "familiaNumerosa", tipo: "chips", txt: "¿Tenéis el título de familia numerosa?", op: [{ v: "si", t: "Sí, en vigor" }, { v: "no", t: "No" }], show: p => p.menores >= 2 },
+        { id: "embarazo", tipo: "chips", txt: "¿Esperáis un bebé o habéis tenido uno en el último año?", op: yesno },
+        { id: "hijo18", tipo: "chips", txt: "¿Alguien de casa nació en 2008?", ayuda: "Quien cumple 18 años en 2026 tiene 400 € de Bono Cultural Joven.", op: yesno, show: p => p.anioNac !== 2008 && (p.adultos > 1) }
+      ]},
+      { t: "Dinero", q: [
+        { g: "Esta es importante. Mueve la barra hasta los ingresos brutos de todo el hogar el año pasado. Tranquilidad: nada sale de tu navegador.", id: "ingresos", tipo: "slider", txt: "¿Cuánto ingresó tu hogar el año pasado, sumando a todos?", ayuda: "En bruto: nóminas, pensiones, paro, alquileres… Es una estimación; nadie la ve fuera de tu navegador.", min: 0, max: 100000, step: 500, def: 18000 },
+        { id: "patrimonioBajo", tipo: "chips", txt: "Sin contar tu vivienda, ¿tenéis menos de 25.000 € entre ahorros y otros bienes?", ayuda: "El IMV y otras ayudas miran el patrimonio, no solo los ingresos.", op: [{ v: true, t: "Sí, menos de 25.000 €" }, { v: false, t: "No, más" }] }
+      ]},
+      { t: "Trabajo", q: [
+        { g: "¿A qué te dedicas ahora? Con esto busco en el SEPE y en la Seguridad Social.", id: "laboral", tipo: "chips", txt: "¿Cuál es tu situación laboral ahora?", op: [{ v: "empleado", t: "Trabajo por cuenta ajena" }, { v: "autonomo", t: "Soy autónomo" }, { v: "paro-prestacion", t: "En paro, cobrando paro" }, { v: "paro-sin", t: "En paro, sin cobrar nada" }, { v: "estudiante", t: "Estudiante" }, { v: "jubilado", t: "Jubilado / pensionista" }, { v: "incapacidad", t: "Incapacidad o baja larga" }, { v: "hogar", t: "Me ocupo del hogar" }] },
+        { id: "cotizado12", tipo: "chips", txt: "¿Has trabajado al menos 12 meses en los últimos 6 años?", ayuda: "Es lo que da derecho al paro contributivo.", op: yesno, show: p => p.laboral === "paro-sin" },
+        { id: "agotada", tipo: "chips", txt: "¿Ya cobraste y agotaste el paro?", op: yesno, show: p => p.laboral === "paro-sin" && p.cotizado12 },
+        { id: "pension", tipo: "chips", txt: "¿Cobras una pensión contributiva (por lo que cotizaste)?", op: [{ v: "contributiva", t: "Sí" }, { v: "ninguna", t: "No, ninguna" }], show: p => p.laboral === "jubilado" || p.edad >= 65 },
+        { id: "quiereEmprender", tipo: "chips", txt: "¿Estás pensando en montar tu negocio o hacerte autónomo?", op: yesno, show: p => p.laboral !== "jubilado" && p.edad < 67 }
+      ]},
+      { t: "Tu casa", q: [
+        { g: "Vamos con tu casa. Si vives de alquiler, el nuevo Plan Estatal de Vivienda puede ayudarte.", id: "vivienda", tipo: "chips", txt: "¿Cómo vives?", op: [{ v: "alquiler", t: "De alquiler (vivienda)" }, { v: "habitacion", t: "Alquilo una habitación" }, { v: "hipoteca", t: "En propiedad con hipoteca" }, { v: "propia", t: "En propiedad pagada" }, { v: "familia", t: "En casa de familia, cedida" }, { v: "sin", t: "Sin vivienda estable" }] },
+        { id: "alquiler", tipo: "slider", txt: "¿Cuánto pagas de alquiler al mes?", min: 0, max: 2000, step: 25, def: 650, mensual: true, show: p => p.vivienda === "alquiler" || p.vivienda === "habitacion" },
+        { id: "quiereComprar", tipo: "chips", txt: "¿Quieres comprar tu primera vivienda pronto?", op: yesno, show: p => p.vivienda !== "propia" && p.vivienda !== "hipoteca" },
+        { id: "reforma", tipo: "chips", txt: "¿Te planteas reformar la casa para gastar menos energía o mejorar la accesibilidad?", op: yesno, show: p => p.vivienda === "propia" || p.vivienda === "hipoteca" }
+      ]},
+      { t: "Salud y cuidados", q: [
+        { g: "Estas preguntas son delicadas, pero abren ayudas importantes. Responde solo lo que quieras.", id: "discapacidad", tipo: "chips", txt: "¿Alguien del hogar tiene reconocida una discapacidad?", op: [{ v: 0, t: "No" }, { v: 33, t: "Sí, del 33 % al 64 %" }, { v: 65, t: "Sí, del 65 % o más" }] },
+        { id: "discapacidadQuien", tipo: "chips", txt: "¿Quién la tiene?", op: [{ v: "yo", t: "Yo" }, { v: "hijo", t: "Un hijo o hija" }, { v: "otro", t: "Otro familiar a mi cargo" }], show: p => p.discapacidad > 0 },
+        { id: "dependencia", tipo: "chips", txt: "¿Hay alguien que necesite ayuda de otra persona para la vida diaria?", ayuda: "Por ejemplo, una persona mayor que no puede asearse o vestirse sola.", op: yesno },
+        { id: "vg", tipo: "chips", txt: "¿Estás en una situación de violencia de género?", ayuda: "Pregunta opcional y confidencial: da acceso a ayudas y prioridad. Si necesitas ayuda ahora, llama al 016 (gratis, no deja rastro en la factura).", op: [{ v: true, t: "Sí" }, { v: false, t: "No" }, { v: false, t: "Prefiero no responder", k: "nr" }] }
+      ]},
+      { t: "Día a día", q: [
+        { g: "¡Último nivel! Unas preguntas rápidas sobre estudios, transporte y energía y preparo tu expediente.", id: "estudia", tipo: "chips", txt: "¿Alguien en casa estudia Bachillerato, FP o universidad?", op: [{ v: "no", t: "No" }, { v: "bach-fp", t: "Bachillerato o FP" }, { v: "universidad", t: "Universidad" }, { v: "master", t: "Máster" }] },
+        { id: "fueraCasa", tipo: "chips", txt: "¿Estudia fuera de la casa familiar (con alquiler o residencia)?", op: yesno, show: p => p.estudia === "universidad" || p.estudia === "master" || p.estudia === "bach-fp" },
+        { id: "transporte", tipo: "chips", txt: "¿Usáis tren de Cercanías, Media Distancia o autobús entre ciudades?", op: yesno },
+        { id: "vehiculo", tipo: "chips", txt: "¿Pensáis comprar un coche o moto eléctricos o un punto de recarga?", op: yesno },
+        { id: "luzPVPC", tipo: "chips", txt: "¿Tienes la luz con tarifa regulada (PVPC)?", ayuda: "Es necesaria para el bono social. Si no lo sabes, mira tu factura: aparece «PVPC» o «precio voluntario para el pequeño consumidor».", op: [{ v: "si", t: "Sí" }, { v: "no", t: "No, mercado libre" }, { v: "nose", t: "No lo sé" }] }
+      ]}
+    ],
+    empresa: [
+      { t: "Tu proyecto", q: [
+        { g: "¡Hola, emprendedor! Soy Tico. Dime en qué punto está tu negocio y busco las ayudas que te tocan.", id: "fase", tipo: "chips", txt: "¿En qué punto está tu negocio?", op: [{ v: "idea", t: "Es una idea", d: "Aún no me he dado de alta" }, { v: "reciente", t: "Recién creado", d: "Menos de 1 año" }, { v: "joven", t: "Joven", d: "De 1 a 3 años" }, { v: "consolidada", t: "Consolidado", d: "Más de 3 años" }] },
+        { id: "forma", tipo: "chips", txt: "¿Con qué forma jurídica?", op: [{ v: "autonomo", t: "Autónomo" }, { v: "sociedad", t: "Sociedad (S.L., S.A.)" }, { v: "cooperativa", t: "Cooperativa o S. laboral" }] }
+      ]},
+      { t: "Dónde", q: [
+        { id: "ccaa", tipo: "ccaa", txt: "¿En qué comunidad tiene su sede?", op: CCAA_OPTS },
+        { id: "municipio", tipo: "texto", txt: "¿En qué municipio?", ayuda: "Opcional, para buscar ayudas de tu ayuntamiento y diputación.", ph: "Ej.: Lorca", opcional: true },
+        { id: "municipioPequeno", tipo: "chips", txt: "¿Es un municipio de menos de 5.000 habitantes?", op: [{ v: true, t: "Sí" }, { v: false, t: "No" }] }
+      ]},
+      { t: "Equipo", q: [
+        { id: "anioNac", tipo: "num", txt: "¿En qué año nació la persona promotora (o el socio mayoritario)?", ayuda: "ENISA Jóvenes pide menos de 40 años; jóvenes agricultores, 40 o menos.", min: 1940, max: ANIO - 16, def: 1990, suf: v => `${ANIO - v} años` },
+        { id: "mujer", tipo: "chips", txt: "¿El proyecto está liderado por una mujer?", op: yesno },
+        { id: "desempleado", tipo: "chips", txt: "¿Estás cobrando el paro ahora?", ayuda: "Puedes capitalizarlo o compatibilizarlo con tu alta.", op: yesno, show: p => p.fase === "idea" || p.fase === "reciente" },
+        { id: "empleados", tipo: "num", txt: "¿Cuántas personas tienes contratadas?", min: 0, max: 500, def: 0 }
+      ]},
+      { t: "Actividad", q: [
+        { id: "sector", tipo: "chips", txt: "¿A qué se dedica?", op: [{ v: "tech", t: "Tecnología / digital" }, { v: "comercio", t: "Comercio" }, { v: "hosteleria", t: "Hostelería y turismo" }, { v: "agro", t: "Agricultura y ganadería" }, { v: "industria", t: "Industria" }, { v: "servicios", t: "Servicios profesionales" }, { v: "cultura", t: "Cultura y creatividad" }] },
+        { id: "innovadora", tipo: "chips", txt: "¿Desarrolla tecnología propia o un producto innovador y escalable?", op: yesno },
+        { id: "capital20k", tipo: "chips", txt: "¿La sociedad tiene 20.000 € o más de capital social?", ayuda: "Es requisito de NEOTEC.", op: yesno, show: p => p.forma === "sociedad" && p.innovadora }
+      ]},
+      { t: "Necesidades", q: [
+        { g: "Última pregunta: marca todo lo que necesitas. Cuantas más marques, más programas reviso.", id: "necesidades", tipo: "multi", txt: "¿Qué necesitas? Marca todo lo que quieras", op: [{ v: "financiar", t: "Financiación" }, { v: "contratar", t: "Contratar personal" }, { v: "digitalizar", t: "Digitalizarme" }, { v: "eficiencia", t: "Ahorrar energía / placas solares" }, { v: "vehiculo", t: "Vehículo eléctrico" }, { v: "internacionalizar", t: "Vender fuera de España" }, { v: "formacion", t: "Formar a mi equipo" }] }
+      ]}
+    ],
+    asociacion: [
+      { t: "Tu entidad", q: [
+        { g: "¡Hola! Soy Tico. Cuéntame a qué se dedica tu entidad para buscar las subvenciones adecuadas.", id: "finalidad", tipo: "chips", txt: "¿A qué se dedica principalmente?", op: [{ v: "social", t: "Acción social e inclusión" }, { v: "discapacidad", t: "Discapacidad o salud" }, { v: "mayores", t: "Personas mayores" }, { v: "juventud", t: "Juventud e infancia" }, { v: "educacion", t: "Educación (AMPA…)" }, { v: "cultura", t: "Cultura" }, { v: "deporte", t: "Deporte" }, { v: "medioambiente", t: "Medio ambiente" }, { v: "vecinal", t: "Vecinal / participación" }, { v: "cooperacion", t: "Cooperación internacional" }] },
+        { id: "ambitoEnt", tipo: "chips", txt: "¿Cuál es su ámbito de actuación según estatutos?", op: [{ v: "local", t: "Local o provincial" }, { v: "autonomico", t: "Autonómico" }, { v: "estatal", t: "Estatal" }] }
+      ]},
+      { t: "Dónde", q: [
+        { id: "ccaa", tipo: "ccaa", txt: "¿En qué comunidad tiene su sede?", op: CCAA_OPTS },
+        { id: "municipio", tipo: "texto", txt: "¿En qué municipio?", ayuda: "Opcional, para buscar las subvenciones de tu ayuntamiento.", ph: "Ej.: Vigo", opcional: true }
+      ]},
+      { t: "Situación", q: [
+        { g: "Sin inscripción en el registro casi no se puede pedir nada. Si aún no lo estáis, te explico cómo hacerlo.", id: "inscrita", tipo: "chips", txt: "¿Está inscrita en el registro de asociaciones?", op: yesno },
+        { id: "antiguedad", tipo: "num", txt: "¿Cuántos años lleva funcionando?", min: 0, max: 100, def: 2 },
+        { id: "utilidadPublica", tipo: "chips", txt: "¿Está declarada de utilidad pública?", op: yesno, show: p => p.inscrita },
+        { id: "empleados", tipo: "num", txt: "¿Cuántas personas tiene contratadas?", min: 0, max: 500, def: 0 }
+      ]},
+      { t: "Necesidades", q: [
+        { g: "Última pregunta: ¿qué queréis financiar? Marca todo lo que aplique.", id: "necAso", tipo: "multi", txt: "¿Qué queréis financiar o mejorar?", op: [{ v: "proyectos", t: "Proyectos y actividades" }, { v: "personal", t: "Contratar personal" }, { v: "equipamiento", t: "Material y equipamiento" }, { v: "local", t: "Local y energía" }, { v: "voluntariado", t: "Voluntariado" }, { v: "europa", t: "Proyectos europeos" }, { v: "digitalizar", t: "Digitalización" }] }
+      ]}
+    ]
+  };
+  const grupo = t => t === "empresa" ? "empresa" : t === "asociacion" ? "asociacion" : "hogar";
+
+  // ── Estado ──
+  const NUEVO = () => ({ vista: "inicio", p: {}, nivel: 0, idx: 0, sellos: 0, docs: {}, filtro: "todas", pts: 0, racha: 0, vistos: [] });
+  let S = NUEVO();
+  try { const g = localStorage.getItem("selloasello"); if (g) S = Object.assign(S, JSON.parse(g)); } catch (e) {}
+  const H = window.claude && window.claude.hot;
+  if (H && H.data && H.data.S) S = H.data.S;
+  if (H && H.snapshot) H.snapshot(() => ({ S }));
+  function guardar() { try { localStorage.setItem("selloasello", JSON.stringify(S)); } catch (e) {} }
+
+  function derivar(p) {
+    p.menores = (p.m0_3 || 0) + (p.m3_6 || 0) + (p.m6_18 || 0);
+    if (p.anioNac) p.edad = ANIO - p.anioNac;
+    if (p.tipo === "persona" && !p.adultos) p.adultos = 1;
+    return p;
+  }
+  const niveles = () => NIV[grupo(S.p.tipo)] || [];
+  const visibles = n => (niveles()[n] ? niveles()[n].q.filter(q => !q.show || q.show(derivar(S.p))) : []);
+  const totalPreg = () => niveles().reduce((s, _, i) => s + visibles(i).length, 0);
+  const hechas = () => niveles().reduce((s, _, i) => s + (i < S.nivel ? visibles(i).length : i === S.nivel ? S.idx : 0), 0);
+
+  let ultimoN = -1, ultimoE = -1;
+  function radar() {
+    const p = derivar(Object.assign({}, S.p));
+    const r = p.tipo ? KB.evaluar(p) : [];
+    const n = r.filter(x => x.nivel !== "baja").length, e = KB.potencial(r);
+    $("#nAyudas").textContent = n;
+    $("#nEuros").textContent = eur(e);
+    if (n !== ultimoN && ultimoN >= 0) { const el = $("#pAyudas"); el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+    if (e !== ultimoE && ultimoE >= 0) { const el = $("#pEuros"); el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+    ultimoN = n; ultimoE = e;
+    if (S.vista === "jugar") {
+      S.vistos = S.vistos || [];
+      const nuevas = r.filter(x => x.nivel !== "baja" && !S.vistos.includes(x.a.id));
+      if (nuevas.length && S.vistos.length + nuevas.length > 0 && radar.listo) {
+        S.ultHallada = nuevas[0].nombre || nuevas[0].a.t;
+        nuevas.slice(0, 2).forEach(x => aviso(nuevas.length > 1 ? `+${nuevas.length} ayudas desbloqueadas` : "Ayuda desbloqueada", x.nombre || x.a.t));
+        SND.moneda();
+      }
+      nuevas.forEach(x => S.vistos.push(x.a.id));
+    }
+    radar.listo = true;
+    $("#nPts").textContent = (S.pts || 0).toLocaleString("es-ES");
+    return r;
+  }
+
+  // ── Vistas ──
+  function render() {
+    guardar();
+    document.querySelectorAll(".escena").forEach(e => e.remove());
+    if (S.vista === "inicio") vInicio();
+    else if (S.vista === "jugar") vJugar();
+    else if (S.vista === "analisis") vAnalisis();
+    else if (S.vista === "final") vFinal();
+    else if (S.vista === "docs") vDocs();
+    else vResultados();
+    radar();
+  }
+
+  function vInicio() {
+    app.innerHTML = `
+    <section class="hero">
+      <div>
+        <h1>Encuentra las ayudas que te tocan, <em>sello a sello</em>.</h1>
+        <p class="lead">Responde a unas preguntas como si fuera un juego. Al final tendrás tu expediente: qué ayudas, becas y subvenciones de España encajan contigo, si el plazo está abierto hoy, qué documentos reunir y los pasos para pedirlas.</p>
+        <div class="datos"><span>${KB.A.length} ayudas estatales, autonómicas y locales</span><span>Plazos revisados el ${KB.fmt(KB.IND.revisado)}</span><span>Tus respuestas no salen de tu navegador</span></div>
+        ${guiaHTML("guiaInicio", "¡Hola! Soy Tico, tu robot guía. Elige abajo tu personaje y te acompaño pregunta a pregunta hasta encontrar tus ayudas. Tardamos unos 3 minutos.", "feliz")}
+        ${S.p.tipo ? `<p style="margin-top:18px"><button class="btn pri" id="seguir" type="button">Continuar mi partida</button> <button class="btn link" id="borrar" type="button">Empezar de cero</button></p>` : ""}
+      </div>
+      <div class="stampbig">${selloSVG("AYUDAS · BECAS · SUBVENCIONES · ", 0)}</div>
+    </section>
+    <section class="eligir">
+      <h2>Elige tu personaje</h2>
+      <div class="personajes">
+        ${[["persona", "Persona", "Para ti: ingresos, empleo, vivienda, estudios, salud"], ["familia", "Familia", "Hijos, crianza, comedor, deducciones, familia numerosa"], ["asociacion", "Asociación", "ONG, clubes, AMPAs, entidades culturales o vecinales"], ["empresa", "Empresa nueva", "Autónomos, startups, pymes y proyectos de negocio"]]
+          .map(([k, t, d]) => `<button class="pj" type="button" data-tipo="${k}">${IC[k]}<b>${t}</b><small>${d}</small></button>`).join("")}
+      </div>
+    </section>`;
+    app.querySelectorAll(".pj").forEach(b => b.onclick = () => {
+      S = Object.assign(NUEVO(), { vista: "jugar", p: { tipo: b.dataset.tipo } });
+      SND.nivel(); estrellas(b, 16);
+      setTimeout(() => window.scrollTo(0, 0), 0);
+      if (b.dataset.tipo === "familia") S.p.adultos = 2;
+      render();
+    });
+    const sg = $("#seguir"); if (sg) sg.onclick = () => { S.vista = S.terminado ? "final" : "jugar"; render(); };
+    const br = $("#borrar"); if (br) br.onclick = () => { S = NUEVO(); render(); };
+  }
+
+  function mapaHTML() {
+    const nv = niveles();
+    let h = '<nav class="mapa" aria-label="Niveles">';
+    nv.forEach((n, i) => {
+      const cls = i < S.sellos ? "hecho" : i === S.nivel ? "actual" : "";
+      if (i) h += `<span class="tramo ${i <= S.sellos ? "hecho" : ""}"></span>`;
+      h += `<button type="button" class="sellito ${cls}" data-n="${i}" title="${esc(n.t)}" aria-label="Nivel ${i + 1}: ${esc(n.t)}" ${i < S.sellos ? "" : "disabled"}>${i < S.sellos ? "✓" : i + 1}</button>`;
+    });
+    h += `<span class="tramo ${S.sellos >= nv.length ? "hecho" : ""}"></span><span class="sellito ${S.sellos >= nv.length ? "hecho" : ""}" title="Expediente">★</span></nav>`;
+    const pct = Math.round(100 * hechas() / Math.max(1, totalPreg()));
+    return h + `<div class="xp" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso"><i style="width:${pct}%"></i></div>`;
+  }
+
+  function preguntaActual() {
+    const vs = visibles(S.nivel);
+    if (S.idx >= vs.length) return null;
+    return vs[S.idx];
+  }
+
+  function vJugar() {
+    const nv = niveles();
+    if (S.nivel >= nv.length) { S.vista = S.terminado ? "final" : "analisis"; return render(); }
+    const q = preguntaActual();
+    if (!q) { avanzarNivel(); return; }
+    const p = derivar(S.p);
+    const nivel = nv[S.nivel];
+    const vs = visibles(S.nivel);
+    let cuerpo = "";
+    const val = q.tipo === "steppers" ? null : p[q.id];
+
+    if (q.tipo === "chips" || q.tipo === "ccaa") {
+      cuerpo = `<div class="opciones ${q.tipo === "ccaa" ? "ccaa" : ""}" role="group" aria-label="${esc(q.txt)}">` + q.op.map((o, i) => {
+        const sel = S.resp && S.resp[q.id] !== undefined ? S.resp[q.id] === (o.k || String(o.v)) : false;
+        return `<button type="button" class="op" data-i="${i}" aria-pressed="${sel}">${q.tipo === "chips" && i < 9 ? `<span class="k">${i + 1}</span>` : ""}<span>${esc(o.t)}${o.d ? `<small>${esc(o.d)}</small>` : ""}</span></button>`;
+      }).join("") + "</div>";
+    } else if (q.tipo === "multi") {
+      const arr = p[q.id] || [];
+      cuerpo = `<div class="opciones" role="group">` + q.op.map((o, i) => `<button type="button" class="op" data-i="${i}" aria-pressed="${arr.includes(o.v)}"><span class="k">${i + 1}</span><span>${esc(o.t)}</span></button>`).join("") + "</div>";
+    } else if (q.tipo === "num") {
+      const v = val != null ? val : q.def;
+      cuerpo = `<div class="num"><button type="button" data-d="-1" aria-label="Menos">−</button><input id="in-${q.id}" type="number" inputmode="numeric" min="${q.min}" max="${q.max}" value="${v}" aria-label="${esc(q.txt)}"><button type="button" data-d="1" aria-label="Más">+</button><span class="ayuda" id="suf" style="margin:0">${q.suf ? esc(q.suf(v)) : ""}</span></div>`;
+    } else if (q.tipo === "slider") {
+      const v = val != null ? val : q.def;
+      cuerpo = `<div class="slider"><output id="out" for="in-${q.id}">${eur(v)}${q.mensual ? "/mes" : ""}</output>${q.mensual ? "" : `<span class="mes" id="mes">≈ ${eur(Math.round(v / 12))} al mes · ${eur(Math.round(v / Math.max(1, (p.adultos || 1) + p.menores)))} por persona</span>`}
+        <input id="in-${q.id}" type="range" min="${q.min}" max="${q.max}" step="${q.step}" value="${v}" aria-label="${esc(q.txt)}">
+        <div class="marcas"><span>${eur(q.min)}</span><span>${eur(q.max / 2)}</span><span>${eur(q.max)}${q.mensual ? "" : " o más"}</span></div></div>`;
+    } else if (q.tipo === "steppers") {
+      cuerpo = `<div class="steppers">` + q.filas.map(f => `<div class="fila"><span>${esc(f.t)}</span><div class="num"><button type="button" data-f="${f.id}" data-d="-1" aria-label="Menos ${esc(f.t)}">−</button><input id="in-${f.id}" type="number" min="0" max="12" value="${p[f.id] || 0}" aria-label="${esc(f.t)}"><button type="button" data-f="${f.id}" data-d="1" aria-label="Más ${esc(f.t)}">+</button></div></div>`).join("") + "</div>";
+    } else if (q.tipo === "texto") {
+      cuerpo = `<input class="texto" id="in-${q.id}" type="text" placeholder="${esc(q.ph || "")}" value="${esc(val || "")}" autocomplete="address-level2">`;
+    }
+
+    const lista = radar();
+    const top = lista.filter(x => x.nivel !== "baja").slice(0, 5);
+    app.innerHTML = `${mapaHTML()}
+    <section class="jugar">
+      <div>
+      ${guiaHTML("guia", "")}
+      <div class="tablero">
+        <div class="eyebrow">Nivel ${S.nivel + 1} · ${esc(nivel.t)} · pregunta ${S.idx + 1} de ${vs.length}${S.racha >= 3 ? `<span class="racha">Racha ×${S.racha}</span>` : ""}</div>
+        <h2 id="qtit">${esc(q.txt)}</h2>
+        <p class="ayuda">${esc(q.ayuda || (q.tipo === "chips" ? "Pulsa una opción (o su número en el teclado)." : ""))}</p>
+        ${cuerpo}
+        <div class="acciones">
+          <button class="btn link" id="atras" type="button">← Atrás</button>
+          <span class="ayuda" style="margin:0;font-size:14px">${Math.round(100 * hechas() / Math.max(1, totalPreg()))} % completado</span>
+          <button class="btn pri" id="sig" type="button" ${needsAnswer(q) ? "disabled" : ""}>${S.idx === vs.length - 1 ? "Conseguir sello" : "Siguiente"} →</button>
+        </div>
+      </div>
+      </div>
+      <aside class="lado">
+        <div class="panel"><h3>Radar de ayudas</h3><div class="bignum">${top.length ? lista.filter(x => x.nivel !== "baja").length : 0}</div><div style="color:var(--muted);font-size:14px">ayudas detectadas hasta ahora</div>
+          ${top.length ? `<ul class="mini">${top.map(x => `<li>${esc(x.nombre || x.a.t)}</li>`).join("")}</ul>` : `<p style="font-size:14px;color:var(--muted);margin:10px 0 0">Responde y verás aparecer ayudas aquí.</p>`}</div>
+        <div class="panel"><h3>Tu ficha</h3><div class="ficha">${ficha(p)}</div></div>
+      </aside>
+    </section>`;
+    bindPregunta(q);
+    const nuevaHallada = S.ultHallada; S.ultHallada = null;
+    const pista = q.g || q.ayuda || "Elige la opción que mejor te describa.";
+    decir(nuevaHallada ? `¡Mira! Acabo de encontrar «${nuevaHallada}». ${pista}` : (S.idx === 0 && S.nivel > 0 && !q.g ? `¡Nivel ${S.nivel + 1}: ${nivel.t}! ${pista}` : pista), nuevaHallada ? "feliz" : "");
+    const h = $("#qtit"); if (h) h.setAttribute("tabindex", "-1");
+  }
+
+  function needsAnswer(q) {
+    if (q.opcional || q.tipo === "num" || q.tipo === "slider" || q.tipo === "steppers" || q.tipo === "multi") return false;
+    return !(S.resp && S.resp[q.id] !== undefined);
+  }
+
+  function ficha(p) {
+    const f = [];
+    const tipoTxt = { persona: "Persona", familia: "Familia", asociacion: "Asociación", empresa: "Empresa nueva" }[p.tipo];
+    f.push(`<span>Personaje: <b>${tipoTxt}</b></span>`);
+    if (p.edad) f.push(`<span>Edad: <b>${p.edad} años</b></span>`);
+    if (p.ccaa) f.push(`<span>Comunidad: <b>${esc(KB.CCAA[p.ccaa].n)}</b>${p.municipio ? " · " + esc(p.municipio) : ""}</span>`);
+    if (grupo(p.tipo) === "hogar" && p.adultos) f.push(`<span>Hogar: <b>${p.adultos} adulto(s), ${p.menores} menor(es)</b></span>`);
+    if (p.ingresos != null) f.push(`<span>Ingresos: <b>${eur(p.ingresos)}/año</b></span>`);
+    if (p.fase) f.push(`<span>Fase: <b>${p.fase}</b> · ${p.forma || ""}</span>`);
+    if (p.finalidad) f.push(`<span>Fin: <b>${p.finalidad}</b> · ${p.ambitoEnt || ""}</span>`);
+    return f.join("");
+  }
+
+  function bindPregunta(q) {
+    S.resp = S.resp || {};
+    const sig = $("#sig");
+    const set = v => { S.p[q.id] = v; radar(); };
+    if (q.tipo === "chips" || q.tipo === "ccaa") {
+      app.querySelectorAll(".op").forEach(b => b.onclick = () => {
+        if (bloqueo) return;
+        const o = q.op[+b.dataset.i];
+        set(o.v); S.resp[q.id] = o.k || String(o.v);
+        estrellas(b); SND.ok(S.racha || 0);
+        decir(ANIMOS[Math.floor(Math.random() * ANIMOS.length)], "feliz");
+        app.querySelectorAll(".op").forEach(x => x.setAttribute("aria-pressed", x === b));
+        sig.disabled = false;
+        clearTimeout(bindPregunta.t);
+        bindPregunta.t = setTimeout(siguiente, 260);
+      });
+    } else if (q.tipo === "multi") {
+      app.querySelectorAll(".op").forEach(b => b.onclick = () => {
+        const o = q.op[+b.dataset.i];
+        const arr = (S.p[q.id] || []).slice();
+        const k = arr.indexOf(o.v); if (k >= 0) arr.splice(k, 1); else arr.push(o.v);
+        set(arr); b.setAttribute("aria-pressed", k < 0);
+      });
+      if (!S.p[q.id]) S.p[q.id] = [];
+    } else if (q.tipo === "num") {
+      const inp = $("#in-" + q.id);
+      const upd = v => { v = Math.max(q.min, Math.min(q.max, Math.round(+v || 0))); inp.value = v; set(v); if (q.suf) $("#suf").textContent = q.suf(v); };
+      if (S.p[q.id] == null) set(q.def);
+      inp.oninput = () => { const v = +inp.value; if (v >= q.min && v <= q.max) { set(v); if (q.suf) $("#suf").textContent = q.suf(v); } };
+      inp.onchange = () => upd(inp.value);
+      app.querySelectorAll(".num button").forEach(b => b.onclick = () => upd(+inp.value + +b.dataset.d));
+    } else if (q.tipo === "slider") {
+      const inp = $("#in-" + q.id);
+      if (S.p[q.id] == null) set(q.def);
+      inp.oninput = () => {
+        const v = +inp.value; set(v);
+        $("#out").textContent = eur(v) + (q.mensual ? "/mes" : "");
+        const m = $("#mes"); if (m) m.textContent = `≈ ${eur(Math.round(v / 12))} al mes · ${eur(Math.round(v / Math.max(1, (S.p.adultos || 1) + (S.p.menores || 0))))} por persona`;
+      };
+    } else if (q.tipo === "steppers") {
+      q.filas.forEach(f => { if (S.p[f.id] == null) S.p[f.id] = 0; });
+      const upd = (id, v) => { v = Math.max(0, Math.min(12, Math.round(+v || 0))); $("#in-" + id).value = v; S.p[id] = v; derivar(S.p); radar(); };
+      app.querySelectorAll(".steppers .num button").forEach(b => b.onclick = () => upd(b.dataset.f, +$("#in-" + b.dataset.f).value + +b.dataset.d));
+      q.filas.forEach(f => { $("#in-" + f.id).onchange = e => upd(f.id, e.target.value); });
+    } else if (q.tipo === "texto") {
+      const inp = $("#in-" + q.id);
+      inp.oninput = () => { S.p[q.id] = inp.value.trim(); };
+      inp.onkeydown = e => { if (e.key === "Enter") siguiente(); };
+    }
+    sig.onclick = siguiente;
+    $("#atras").onclick = atras;
+    app.querySelectorAll(".sellito[data-n]").forEach(b => b.onclick = () => { if (b.disabled) return; S.nivel = +b.dataset.n; S.idx = 0; render(); });
+  }
+
+  let bloqueo = false;
+  function siguiente() {
+    clearTimeout(bindPregunta.t);
+    if (bloqueo) return;
+    const q = preguntaActual();
+    if (q && needsAnswer(q)) return;
+    const ahora = Date.now();
+    S.racha = ahora - (S.tUlt || 0) < 9000 ? (S.racha || 0) + 1 : 1;
+    S.tUlt = ahora;
+    const gana = 100 + (S.racha >= 3 ? 25 * Math.min(S.racha, 10) : 0);
+    S.pts = (S.pts || 0) + gana;
+    const btn = $("#sig");
+    flotante(btn, `+${gana}`);
+    if (q && q.tipo !== "chips" && q.tipo !== "ccaa") { estrellas(btn); SND.ok(S.racha); }
+    SND.pasar();
+    S.idx++;
+    if (S.idx >= visibles(S.nivel).length) return avanzarNivel();
+    render();
+    const tb = $(".tablero"); if (tb) tb.classList.add("entra");
+    if (window.scrollY > 60) window.scrollTo(0, 0);
+    focoTitulo();
+  }
+  function atras() {
+    clearTimeout(bindPregunta.t);
+    if (bloqueo) return;
+    if (S.idx > 0) S.idx--;
+    else if (S.nivel > 0) { S.nivel--; S.idx = Math.max(0, visibles(S.nivel).length - 1); }
+    else { S.vista = "inicio"; }
+    render();
+  }
+  function focoTitulo() { const h = $("#qtit"); if (h) h.focus({ preventScroll: true }); }
+
+  function avanzarNivel() {
+    const nv = niveles();
+    if (bloqueo || !nv[S.nivel]) return;
+    bloqueo = true;
+    SND.nivel();
+    S.pts = (S.pts || 0) + 500;
+    const t = nv[S.nivel].t;
+    S.sellos = Math.max(S.sellos, S.nivel + 1);
+    S.nivel++; S.idx = 0;
+    const fin = S.nivel >= nv.length;
+    const ov = document.createElement("div");
+    ov.className = "overlay";
+    ov.style.pointerEvents = "auto";
+    ov.innerHTML = `<div class="golpe">${selloSVG((fin ? "EXPEDIENTE COMPLETO · " : "NIVEL SUPERADO · ") + t.toUpperCase() + " · ", S.nivel)}<p>${fin ? "¡Expediente completo!" : "¡Sello conseguido!"} +500</p></div>`;
+    ov.querySelector(".golpe").insertAdjacentHTML("afterbegin", ROBOT.replace('class="robot"', 'class="robot feliz celebra" style="width:90px;height:110px;display:block;margin:0 auto -10px"'));
+    document.body.appendChild(ov);
+    const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTimeout(() => { bloqueo = false; ov.remove(); if (fin) { S.vista = "analisis"; } render(); window.scrollTo(0, 0); focoTitulo(); }, reduce ? 400 : 1050);
+  }
+
+  // ── Resultados ──
+  const FILTROS = [
+    ["todas", "Todas"], ["ya", "Pedir ya"], ["renta", "En la Renta"], ["consultar", "Mirar en tu comunidad"], ["preparar", "Preparar para la próxima"]
+  ];
+  const enFiltro = (r, f) => f === "todas" ? true : f === "ya" ? (r.est.k === "abierta" || r.est.k === "siempre") : f === "renta" ? r.est.k === "renta" : f === "consultar" ? r.est.k === "consultar" : (r.est.k === "cerrada" || r.est.k === "proxima");
+  const AMB = { estatal: "Estatal", autonomico: "Autonómica", local: "Local", europeo: "Europea", privado: "Privada" };
+  const NIVEL = { alta: "Encaje alto", media: "Posible", baja: "Informativa" };
+
+  function vResultados() {
+    const p = derivar(S.p);
+    const res = KB.evaluar(Object.assign({}, p));
+    const pot = KB.potencial(res);
+    const ya = res.filter(r => r.est.k === "abierta" || r.est.k === "siempre").length;
+    const prep = res.filter(r => r.est.k === "cerrada" || r.est.k === "proxima").length;
+    const urg = res.filter(r => r.est.k === "abierta" && r.est.dias <= 31);
+    const c = KB.CCAA[p.ccaa] || {};
+    const muni = p.municipio || "";
+    const lista = res.filter(r => enFiltro(r, S.filtro));
+    const hoy = new Date();
+    const viejo = (hoy - new Date(KB.IND.revisado)) / 864e5 > 90;
+
+    app.innerHTML = `
+    <p class="volver"><button class="btn sec" id="aMenu" type="button">← Menú final</button></p>
+    ${guiaHTML("guiaRes", "Pulsa cada ayuda para ver por qué te encaja, los documentos y los pasos. El botón «Ir a la web oficial» te lleva al trámite real.")}
+    <section class="res-hero">
+      <div style="width:150px">${selloSVG("EXPEDIENTE · " + (c.n || "ESPAÑA").toUpperCase() + " · ", 99)}</div>
+      <div><div class="eyebrow">Tu expediente · ${hoy.toLocaleDateString("es-ES")}</div>
+        <h1>${res.length ? `Hemos encontrado ${res.length} ayudas que encajan contigo` : "No hemos encontrado ayudas claras con estos datos"}</h1>
+        <p class="ayuda" style="margin-top:8px">Ordenadas por plazo y encaje. Abre cada una para ver por qué te encaja, los documentos (puedes marcarlos según los consigas) y los pasos.</p></div>
+    </section>
+    ${viejo ? `<div class="urgente"><b>Atención:</b> la información se revisó el ${KB.fmt(KB.IND.revisado)}, hace más de 3 meses. Confirma cada plazo en el enlace oficial.</div>` : ""}
+    <div class="kpis">
+      <div class="kpi"><div class="v">${res.filter(r => r.nivel !== "baja").length}</div><div class="l">ayudas con encaje</div></div>
+      <div class="kpi"><div class="v" style="color:var(--oro)">${eur(pot)}</div><div class="l">ahorro o ingreso estimado al año</div></div>
+      <div class="kpi"><div class="v" style="color:var(--verde)">${ya}</div><div class="l">se pueden pedir hoy</div></div>
+      <div class="kpi"><div class="v">${prep}</div><div class="l">para preparar (cerradas o por abrir)</div></div>
+    </div>
+    ${urg.length ? `<div class="urgente"><b>¡Cierra pronto!</b> ${urg.map(r => `${esc(r.a.t)}: ${r.est.dias === 0 ? "hoy es el último día" : `quedan ${r.est.dias} días`}`).join(" · ")}</div>` : ""}
+    <div class="filtros" role="group" aria-label="Filtrar">${FILTROS.map(([k, t]) => `<button type="button" data-f="${k}" aria-pressed="${S.filtro === k}">${t} (${res.filter(r => enFiltro(r, k)).length})</button>`).join("")}</div>
+    <div class="lista">${lista.length ? lista.map(tarjeta).join("") : `<div class="vacio">No hay ayudas en este filtro.</div>`}</div>
+
+    <h2 id="fuentes" style="font-size:22px;margin-top:36px">Sigue buscando en fuentes oficiales</h2>
+    <p class="ayuda">Las convocatorias cambian cada semana. Estos enlaces te llevan directamente a las búsquedas oficiales para tu caso.</p>
+    <div class="mas">
+      <a href="https://www.infosubvenciones.es/bdnstrans/GE/es/convocatorias" target="_blank" rel="noopener"><b>BDNS · todas las convocatorias</b><span>Base de Datos Nacional de Subvenciones: filtra por ${esc(c.n || "tu comunidad")}${muni ? " y " + esc(muni) : ""}</span></a>
+      <a href="https://www.boe.es/" target="_blank" rel="noopener"><b>BOE</b><span>Boletín Oficial del Estado: sección de anuncios y ayudas</span></a>
+      ${c.bol ? `<a href="${c.bolUrl}" target="_blank" rel="noopener"><b>${esc(c.bol)}</b><span>Boletín oficial de ${esc(c.n)}</span></a>` : ""}
+      ${c.web ? `<a href="${c.web}" target="_blank" rel="noopener"><b>Web de ${esc(c.n)}</b><span>Sede y catálogo de trámites de tu comunidad</span></a>` : ""}
+      <a href="https://www.google.com/search?q=${encodeURIComponent(`subvenciones ayudas ${muni ? "ayuntamiento de " + muni : c.n || ""} ${ANIO} ${busqueda(p)}`)}" target="_blank" rel="noopener"><b>Ayudas de ${esc(muni || "tu ayuntamiento")}</b><span>Búsqueda preparada con tu perfil</span></a>
+      <a href="https://administracion.gob.es/" target="_blank" rel="noopener"><b>Punto de Acceso General</b><span>Teléfono 060 de información administrativa</span></a>
+    </div>
+
+    <section class="panel plan" id="planbox">
+      <h3>Tu plan de acción</h3>
+      <p class="ayuda" style="margin-bottom:10px">Un resumen para guardarlo o llevarlo a servicios sociales, a tu gestoría o a la oficina de empleo.</p>
+      <textarea id="plan" readonly aria-label="Plan de acción">${esc(planTexto(p, res))}</textarea>
+      <div class="acciones" style="padding-top:12px"><span id="copiado" class="ayuda" style="margin:0" aria-live="polite"></span><span><button class="btn sec" id="editar" type="button">Cambiar respuestas</button> <button class="btn pri" id="copiar" type="button">Copiar plan</button></span></div>
+    </section>
+
+    <p class="aviso">Sello a Sello es una herramienta orientativa y gratuita. No es un organismo oficial ni tramita solicitudes: la concesión depende siempre de la resolución del organismo. Las cuantías son estimaciones con las cifras de 2026 (IPREM 600 €/mes, SMI 1.221 €/mes, IMV 733,60 €/mes). Comprueba requisitos y plazos en el enlace oficial de cada ayuda antes de solicitar. Tus respuestas se quedan en tu navegador.</p>`;
+
+    app.querySelectorAll(".filtros button").forEach(b => b.onclick = () => { S.filtro = b.dataset.f; render(); });
+    app.querySelectorAll(".docs input").forEach(i => i.onchange = () => {
+      S.docs[i.dataset.k] = i.checked; guardar();
+      const card = i.closest(".ay"); const all = card.querySelectorAll(".docs input"); const ok = [...all].filter(x => x.checked).length;
+      card.querySelector(".progreso").textContent = `${ok}/${all.length} listos`;
+    });
+    $("#copiar").onclick = async () => {
+      const t = $("#plan");
+      try { await navigator.clipboard.writeText(t.value); $("#copiado").textContent = "Plan copiado."; }
+      catch (e) { t.select(); $("#copiado").textContent = "Selecciona el texto y cópialo con Ctrl+C."; }
+    };
+    $("#editar").onclick = () => { S.vista = "jugar"; S.nivel = 0; S.idx = 0; render(); };
+    $("#aMenu").onclick = () => { S.vista = "final"; S.saltarIntro = true; render(); };
+    if (S.ir) { const el = document.getElementById(S.ir); S.ir = null; if (el) setTimeout(() => el.scrollIntoView({ behavior: reduce() ? "auto" : "smooth" }), 60); }
+  }
+
+  // ── Pantalla de análisis con barra de tiempo ──
+  function fuenteDe(a) {
+    const o = a.org;
+    if (/Seguridad Social|INSS|TGSS/.test(o)) return "Seguridad Social (IMV, CAPI, nacimiento, pensiones)";
+    if (/SEPE/.test(o)) return "SEPE (paro, subsidios, empleo)";
+    if (/Tributaria/.test(o)) return "Agencia Tributaria (deducciones)";
+    if (/Vivienda|ICO/.test(o)) return "Ministerio de Vivienda e ICO";
+    if (/IMSERSO|Dependencia/.test(o)) return "IMSERSO y dependencia";
+    if (/Educación|Cultura|Transportes/.test(o)) return "Ministerios de Educación, Cultura y Transportes";
+    if (/Transición|CNMC|IDAE|MITECO/.test(o)) return "Energía: CNMC, MITECO e IDAE";
+    if (/ENISA|CDTI|ICEX|Red\.es|Cámara|FUNDAE/.test(o)) return "ENISA, CDTI, ICEX y Cámaras";
+    if (a.amb === "local") return "Ayuntamientos y diputaciones";
+    if (a.amb === "autonomico") return "Programas de tu comunidad autónoma";
+    return "Otros organismos y fundaciones";
+  }
+  let timerAn = null;
+  function vAnalisis() {
+    const p = derivar(Object.assign({}, S.p));
+    const res = KB.evaluar(p);
+    const grupos = {};
+    KB.A.filter(a => a.para.includes(p.tipo)).forEach(a => { const f = fuenteDe(a); grupos[f] = grupos[f] || { rev: 0, ok: 0 }; grupos[f].rev++; });
+    res.forEach(r => { grupos[fuenteDe(r.a)].ok++; });
+    const pasos = Object.entries(grupos).map(([f, g]) => ({ t: `Revisando ${f}`, n: `${g.ok} de ${g.rev}` }));
+    pasos.push({ t: `Comprobando plazos a fecha de hoy (${new Date().toLocaleDateString("es-ES")})`, n: `${res.filter(r => r.est.k === "abierta" || r.est.k === "siempre").length} abiertas` });
+    pasos.push({ t: "Calculando cuantías y documentos", n: eur(KB.potencial(res)) });
+    const dur = reduce() ? 1500 : 6500;
+    const esc_ = document.createElement("section");
+    esc_.className = "escena"; esc_.setAttribute("role", "dialog"); esc_.setAttribute("aria-label", "Analizando tu expediente");
+    esc_.innerHTML = `<div class="in">
+      <p class="sub" style="font-family:var(--display);letter-spacing:.12em;text-transform:uppercase;font-size:13px;color:#ec6a5c">Fase final</p>
+      <h1>Analizando tu expediente</h1>
+      ${guiaHTML("guiaAn", "Estoy cruzando tus respuestas con cada ayuda y comprobando los plazos a fecha de hoy. ¡Un momento!", "piensa")}
+      <p class="sub">Cruzamos tus respuestas con ${KB.A.length} ayudas de fuentes oficiales, revisadas el ${KB.fmt(KB.IND.revisado)}.</p>
+      <div><div class="barra" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso del análisis"><i id="barra"></i></div>
+      <div class="reloj"><span id="pct">0 %</span><span id="seg">${(dur / 1000).toFixed(1)} s</span></div></div>
+      <ul class="log" id="log"></ul>
+      <button class="saltar" id="saltar" type="button">Saltar animación</button></div>`;
+    document.body.appendChild(esc_);
+    app.innerHTML = "";
+    const t0 = performance.now(); let mostrados = 0;
+    const acabar = () => { clearInterval(timerAn); timerAn = null; S.terminado = true; S.vista = "final"; S.saltarIntro = false; render(); };
+    $("#saltar").onclick = acabar;
+    clearInterval(timerAn);
+    timerAn = setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / dur);
+      $("#barra").style.width = (k * 100).toFixed(1) + "%";
+      $("#pct").textContent = Math.round(k * 100) + " %";
+      $("#seg").textContent = Math.max(0, (dur - (performance.now() - t0)) / 1000).toFixed(1) + " s";
+      const debe = Math.min(pasos.length, Math.floor(k * (pasos.length + .6)));
+      while (mostrados < debe) {
+        const ps = pasos[mostrados++]; const li = document.createElement("li");
+        li.innerHTML = `<span class="ok">OK</span><span>${esc(ps.t)}</span><span class="n">${esc(ps.n)}</span>`;
+        $("#log").appendChild(li); SND.tic();
+      }
+      if (k >= 1) setTimeout(acabar, 450), clearInterval(timerAn);
+    }, 80);
+  }
+
+  // ── Pantalla final tipo videojuego ──
+  function vFinal() {
+    const p = derivar(Object.assign({}, S.p));
+    const res = KB.evaluar(p);
+    const enc = res.filter(r => r.nivel !== "baja");
+    const pot = KB.potencial(res);
+    const cnt = k => res.filter(r => enFiltro(r, k)).length;
+    const nDocs = docsUnicos(res).length;
+    const estrellasN = enc.length >= 8 ? 3 : enc.length >= 4 ? 2 : enc.length ? 1 : 0;
+    const rango = ["Expediente revisado", "Explorador de ayudas", "Cazador de ayudas", "Maestro de las ayudas"][estrellasN];
+    const intro = !S.saltarIntro && !reduce();
+    const opciones = [
+      ["ya", "Pedir ya", `${cnt("ya")} ayudas abiertas hoy`],
+      ["todas", "Ver todas mis ayudas", `${res.length} en total`],
+      ["docs", "Mi checklist de documentos", `${nDocs} documentos`],
+      ["renta", "Ahorrar en la Renta", `${cnt("renta")} deducciones`],
+      ["consultar", "Convocatorias de mi comunidad", `${cnt("consultar")} por revisar`],
+      ["preparar", "Preparar las próximas", `${cnt("preparar")} cerradas o por abrir`],
+      ["fuentes", "Buscar más en BOE, BDNS y boletines", "fuentes oficiales"],
+      ["plan", "Copiar mi plan de acción", "para guardarlo o imprimirlo"],
+      ["editar", "Cambiar respuestas", "volver a los niveles"],
+      ["nueva", "Nueva partida", "otra persona, familia o entidad"]
+    ];
+    const el = document.createElement("section");
+    el.className = "escena final"; el.setAttribute("role", "dialog"); el.setAttribute("aria-label", "Resultado final");
+    el.innerHTML = `<div class="in">
+      <div class="titulo">MISIÓN<br>COMPLETADA</div>
+      <div class="estrellas">${[0, 1, 2].map(i => `<svg viewBox="0 0 24 24" class="${i < estrellasN ? "on" : ""}" style="animation-delay:${.5 + i * .25}s" aria-hidden="true"><path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.3 5.8 21l1.6-7L2 9.2l7.1-.6z" fill="#f0b64f"/></svg>`).join("")}</div>
+      <div class="rango">Rango: ${rango}</div>
+      ${guiaHTML("guiaFin", enc.length ? `¡Lo conseguimos! He encontrado ${enc.length} ayudas para ti. Te recomiendo empezar por «Pedir ya» y después preparar los documentos. Elige una opción:` : "Con estos datos no veo ayudas claras, pero revisa «Buscar más» o cambia alguna respuesta.", "feliz celebra")}
+      <div class="marcador">
+        <div><b id="cAy">${intro ? 0 : enc.length}</b><span>ayudas con encaje</span></div>
+        <div><b id="cEu">${intro ? "0 €" : eur(pot)}</b><span>estimado al año</span></div>
+        <div><b id="cPt">${intro ? 0 : (S.pts || 0).toLocaleString("es-ES")}</b><span>puntos</span></div>
+      </div>
+      <ul class="menu" id="menu" role="menu">${opciones.map(([k, t, d], i) => `<li role="none"><button role="menuitem" type="button" data-k="${k}" class="${i === 0 ? "sel" : ""}"><span>${t}</span><small>${d}</small></button></li>`).join("")}</ul>
+      <p class="pista">Usa ↑ ↓ y Enter, o pulsa una opción</p>
+      <p class="sub" id="copiadoF" aria-live="polite" style="min-height:1.5em"></p>
+    </div>`;
+    document.body.appendChild(el);
+    app.innerHTML = "";
+    if (intro) {
+      SND.victoria();
+      const fin = { ay: enc.length, eu: pot, pt: S.pts || 0 }, t0 = performance.now(), D = 1400;
+      const paso = () => {
+        const k = Math.min(1, (performance.now() - t0) / D), e = 1 - Math.pow(1 - k, 3);
+        $("#cAy").textContent = Math.round(fin.ay * e); $("#cEu").textContent = eur(Math.round(fin.eu * e)); $("#cPt").textContent = Math.round(fin.pt * e).toLocaleString("es-ES");
+        if (k < 1) requestAnimationFrame(paso);
+      };
+      setTimeout(() => requestAnimationFrame(paso), 500);
+      setTimeout(() => { for (let i = 0; i < 3; i++) setTimeout(() => estrellas(el.querySelector(".titulo"), 18), i * 250); }, 200);
+    }
+    S.saltarIntro = true; guardar();
+    const btns = [...el.querySelectorAll(".menu button")];
+    let sel = 0;
+    const mover = i => { sel = (i + btns.length) % btns.length; btns.forEach((b, j) => b.classList.toggle("sel", j === sel)); btns[sel].focus(); SND.menu(); };
+    btns.forEach((b, i) => { b.onmouseenter = () => { if (sel !== i) mover(i); }; b.onclick = () => elegir(b.dataset.k, b); });
+    let tocado = false;
+    el.onkeydown = e => {
+      if (e.key === "ArrowDown") { tocado = true; mover(sel + 1); e.preventDefault(); }
+      else if (e.key === "ArrowUp") { tocado = true; mover(sel - 1); e.preventDefault(); }
+      else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); elegir(btns[sel].dataset.k, btns[sel]); }
+    };
+    if (!tocado) btns[0].focus({ preventScroll: true });
+    function elegir(k, b) {
+      SND.ok(2); estrellas(b, 8);
+      if (["ya", "todas", "renta", "consultar", "preparar"].includes(k)) { S.filtro = k; S.vista = "resultados"; S.ir = null; }
+      else if (k === "fuentes") { S.filtro = "todas"; S.vista = "resultados"; S.ir = "fuentes"; }
+      else if (k === "docs") { S.vista = "docs"; }
+      else if (k === "plan") {
+        const txt = planTexto(p, res);
+        navigator.clipboard.writeText(txt).then(() => { $("#copiadoF").textContent = "Plan de acción copiado. Pégalo donde quieras."; })
+          .catch(() => { S.vista = "resultados"; S.ir = "planbox"; render(); });
+        return;
+      }
+      else if (k === "editar") { S.vista = "jugar"; S.nivel = 0; S.idx = 0; }
+      else if (k === "nueva") { S = NUEVO(); }
+      render(); window.scrollTo(0, 0);
+    }
+  }
+
+  // ── Checklist de documentos unificada ──
+  function docsUnicos(res) {
+    const m = new Map();
+    res.filter(r => r.nivel !== "baja" && r.est.k !== "cerrada").forEach(r => r.a.docs.forEach(d => { if (!m.has(d)) m.set(d, []); m.get(d).push(r.nombre || r.a.t); }));
+    return [...m.entries()].sort((a, b) => b[1].length - a[1].length);
+  }
+  function vDocs() {
+    const res = KB.evaluar(derivar(Object.assign({}, S.p)));
+    const L = docsUnicos(res);
+    S.docsG = S.docsG || {};
+    const listos = L.filter(([d]) => S.docsG[d]).length;
+    app.innerHTML = `<p class="volver"><button class="btn sec" id="aMenu" type="button">← Menú final</button></p>
+      <section style="padding:12px 0 40px;max-width:820px">
+        ${guiaHTML("guiaDocs", listos === L.length && L.length ? "¡Lo tienes todo! Ya puedes presentar tus solicitudes." : "Empieza por arriba: esos documentos te sirven para muchas ayudas a la vez. Cada uno que consigas suma 50 puntos.", listos === L.length && L.length ? "feliz celebra" : "")}
+        <div class="eyebrow">Misión documentos · ${listos}/${L.length} conseguidos</div>
+        <h1 style="font-size:clamp(26px,4vw,40px);margin:6px 0 8px">Tu checklist de documentos</h1>
+        <p class="ayuda">Ordenados por cuántas ayudas los piden: empieza por arriba y desbloquearás más solicitudes con menos trámites.</p>
+        <div class="xp" style="margin:0 0 18px"><i style="width:${L.length ? (100 * listos / L.length) : 0}%"></i></div>
+        <div class="doclista">${L.map(([d, ays], i) => `<label><input type="checkbox" data-i="${i}" ${S.docsG[d] ? "checked" : ""}><span><span>${esc(d)}</span><small>Lo piden ${ays.length} ayuda(s): ${esc(ays.slice(0, 4).join(", "))}${ays.length > 4 ? "…" : ""}</small></span></label>`).join("")}</div>
+      </section>`;
+    $("#aMenu").onclick = () => { S.vista = "final"; render(); };
+    app.querySelectorAll(".doclista input").forEach(i => i.onchange = () => {
+      S.docsG[L[+i.dataset.i][0]] = i.checked;
+      if (i.checked) { SND.moneda(); estrellas(i, 8); S.pts = (S.pts || 0) + 50; }
+      guardar(); const sc = window.scrollY; render(); window.scrollTo(0, sc);
+    });
+  }
+
+  function busqueda(p) {
+    if (p.tipo === "empresa") return "emprendedores autónomos";
+    if (p.tipo === "asociacion") return "asociaciones entidades";
+    return p.menores ? "familias" : "personas";
+  }
+
+  function tarjeta(r) {
+    const a = r.a, e = r.est;
+    const docs = a.docs.map((d, i) => { const k = a.id + ":" + i; return `<li><label><input type="checkbox" data-k="${k}" ${S.docs[k] ? "checked" : ""}><span>${esc(d)}</span></label></li>`; }).join("");
+    const listos = a.docs.filter((_, i) => S.docs[a.id + ":" + i]).length;
+    return `<details class="ay e-${e.k}">
+      <summary>
+        <div><h3>${esc(r.nombre || a.t)}</h3><div class="org">${esc(a.org)}</div></div>
+        <div class="imp">${r.imp ? eur(r.imp) + "<small>estimado/año</small>" : ""}</div>
+        <div class="tags"><span class="tag ${e.k}">${esc(e.txt)}</span><span class="tag ${r.nivel}">${NIVEL[r.nivel]}</span><span class="tag">${AMB[a.amb]}</span></div>
+      </summary>
+      <div class="cuerpo">
+        <div class="full why"><b>Por qué te encaja:</b> ${r.why.map(esc).join(". ")}.</div>
+        <div class="full"><p style="margin:0 0 6px">${esc(a.res)}</p>${r.detalle ? `<p style="margin:0 0 6px"><b>En tu comunidad:</b> ${esc(r.detalle)}</p>` : ""}<p style="margin:0"><b>Cuantía:</b> ${esc(a.cuantia)}</p></div>
+        ${e.nota || e.prox ? `<div class="full" style="font-size:15px"><b>Plazo:</b> ${esc([e.nota, e.prox].filter(Boolean).join(". "))}</div>` : ""}
+        <div><h4>Requisitos a comprobar</h4><ul>${a.req.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
+        <div><h4>Documentos <span class="progreso">${listos}/${a.docs.length} listos</span></h4><ul class="docs">${docs}</ul></div>
+        <div class="full"><h4>Pasos para solicitarla</h4><ol>${a.pasos.map(x => `<li>${esc(x)}</li>`).join("")}</ol></div>
+        <div class="full pie"><span>Fuente: ${esc(a.fuente)} · revisado el ${KB.fmt(a.ver)}</span>${r.url ? `<a class="btn pri" href="${esc(r.url)}" target="_blank" rel="noopener">Ir a la web oficial ↗</a>` : ""}</div>
+      </div>
+    </details>`;
+  }
+
+  function planTexto(p, res) {
+    const L = [];
+    L.push(`SELLO A SELLO · Plan de acción (${new Date().toLocaleDateString("es-ES")})`);
+    L.push(`Perfil: ${p.tipo}${p.edad ? ", " + p.edad + " años" : ""}${p.ccaa ? ", " + KB.CCAA[p.ccaa].n : ""}${p.municipio ? " (" + p.municipio + ")" : ""}${p.ingresos != null ? ", ingresos " + eur(p.ingresos) + "/año" : ""}`);
+    L.push("");
+    const grupos = [["PEDIR YA", r => r.est.k === "abierta" || r.est.k === "siempre"], ["EN LA DECLARACIÓN DE LA RENTA", r => r.est.k === "renta"], ["CONSULTAR CONVOCATORIA DE TU COMUNIDAD / ENTIDAD", r => r.est.k === "consultar"], ["PREPARAR PARA LA PRÓXIMA CONVOCATORIA", r => r.est.k === "cerrada" || r.est.k === "proxima"]];
+    for (const [t, f] of grupos) {
+      const g = res.filter(f); if (!g.length) continue;
+      L.push(t);
+      g.forEach(r => L.push(`- ${r.nombre || r.a.t} · ${r.est.txt}${r.imp ? " · ~" + eur(r.imp) + "/año" : ""}\n  ${r.url || ""}`));
+      L.push("");
+    }
+    const docs = new Set(); res.filter(r => r.nivel !== "baja").forEach(r => r.a.docs.forEach(d => docs.add(d)));
+    if (docs.size) { L.push("DOCUMENTOS QUE TE CONVIENE TENER LISTOS"); [...docs].forEach(d => L.push("[ ] " + d)); L.push(""); }
+    L.push("Orientativo. Confirma requisitos y plazos en cada web oficial.");
+    return L.join("\n");
+  }
+
+  // Teclado: números eligen opción, Enter avanza
+  document.addEventListener("keydown", e => {
+    if (S.vista !== "jugar" || e.target.tagName === "INPUT" || e.altKey || e.ctrlKey || e.metaKey) return;
+    const n = parseInt(e.key, 10);
+    if (n >= 1 && n <= 9) { const b = app.querySelectorAll(".op")[n - 1]; if (b) { b.click(); e.preventDefault(); } }
+    else if (e.key === "Enter" && !e.target.closest("button")) { const s = $("#sig"); if (s && !s.disabled) s.click(); }
+  });
+  $("#home").onclick = () => { S.vista = "inicio"; render(); };
+  $("#mute").onclick = () => { SND.toggle(); pintaMute(); };
+  pintaMute();
+
+  // Restaurar respuestas de chips al volver a una partida guardada
+  if (!S.resp) S.resp = {};
+  render();
+})();
+</script>
+</body>
+</html>
