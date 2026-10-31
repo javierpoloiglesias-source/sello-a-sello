@@ -351,8 +351,8 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
     };
   })();
 
-  // ── Robot guía «Tico» (ilustración propia) ──
-  const ROBOT = `<svg class="robot" viewBox="0 0 120 146" role="img" aria-label="Tico, tu robot guía">
+  // ── Robot guía «Polito» (ilustración propia) ──
+  const ROBOT = `<svg class="robot" viewBox="0 0 120 146" role="img" aria-label="Polito, tu robot guía">
     <g class="cuerpo-r">
       <path d="M30 104c0-12 13-20 30-20s30 8 30 20v30c0 6-5 10-11 10H41c-6 0-11-4-11-10z" fill="#f4f6fa" stroke="#c9d1df" stroke-width="2"/>
       <rect x="44" y="104" width="32" height="22" rx="5" fill="#17223b"/><path d="M50 116l6 5 11-11" fill="none" stroke="#e3a234" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
@@ -370,7 +370,7 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
       <path class="boca" d="M54 63q6 5 12 0" fill="none" stroke="#17223b" stroke-width="3" stroke-linecap="round"/>
     </g></svg>`;
   function guiaHTML(id, texto, modo = "") {
-    return `<div class="guia" id="${id}">${ROBOT.replace('class="robot"', `class="robot ${modo}"`)}<div class="bocadillo" aria-live="polite"><b class="nombre">Tico · tu guía</b><span class="txt">${esc(texto)}</span></div></div>`;
+    return `<div class="guia" id="${id}">${ROBOT.replace('class="robot"', `class="robot ${modo}"`)}<div class="bocadillo" aria-live="polite"><b class="nombre">Polito · tu guía</b><span class="txt">${esc(texto)}</span></div></div>`;
   }
   let timerHabla = null;
   function decir(texto, modo, id = "guia") {
@@ -444,7 +444,7 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
   const NIV = {
     hogar: [
       { t: "Quién eres", q: [
-        { g: "¡Hola! Soy Tico y te acompaño hasta el final. Empezamos por tu año de nacimiento: con la edad ya descarto o desbloqueo muchas ayudas.", id: "anioNac", tipo: "num", txt: "¿En qué año naciste?", ayuda: "La edad abre o cierra muchas ayudas: bono alquiler joven, IMV, Garantía Juvenil, pensiones…", min: 1920, max: ANIO - 14, def: 1990, suf: v => `Tienes unos ${ANIO - v} años` },
+        { g: "¡Hola! Soy Polito y te acompaño hasta el final. Empezamos por tu año de nacimiento: con la edad ya descarto o desbloqueo muchas ayudas.", id: "anioNac", tipo: "num", txt: "¿En qué año naciste?", ayuda: "La edad abre o cierra muchas ayudas: bono alquiler joven, IMV, Garantía Juvenil, pensiones…", min: 1920, max: ANIO - 14, def: 1990, suf: v => `Tienes unos ${ANIO - v} años` },
         { g: "Algunas ayudas piden llevar un tiempo en España. Elige la opción que mejor encaje, sin miedo: solo sirve para orientarte.", id: "residencia", tipo: "chips", txt: "¿Cuánto tiempo llevas viviendo legalmente en España?", ayuda: "Muchas prestaciones piden residencia mínima: 1 año para el IMV, 10 para la pensión no contributiva.", op: [{ v: "menos1", t: "Menos de 1 año" }, { v: "1a2", t: "1 a 2 años" }, { v: "2a5", t: "2 a 5 años" }, { v: "5a10", t: "5 a 10 años" }, { v: "mas10", t: "Más de 10 años o toda la vida" }] }
       ]},
       { t: "Dónde vives", q: [
@@ -493,7 +493,7 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
     ],
     empresa: [
       { t: "Tu proyecto", q: [
-        { g: "¡Hola, emprendedor! Soy Tico. Dime en qué punto está tu negocio y busco las ayudas que te tocan.", id: "fase", tipo: "chips", txt: "¿En qué punto está tu negocio?", op: [{ v: "idea", t: "Es una idea", d: "Aún no me he dado de alta" }, { v: "reciente", t: "Recién creado", d: "Menos de 1 año" }, { v: "joven", t: "Joven", d: "De 1 a 3 años" }, { v: "consolidada", t: "Consolidado", d: "Más de 3 años" }] },
+        { g: "¡Hola, emprendedor! Soy Polito. Dime en qué punto está tu negocio y busco las ayudas que te tocan.", id: "fase", tipo: "chips", txt: "¿En qué punto está tu negocio?", op: [{ v: "idea", t: "Es una idea", d: "Aún no me he dado de alta" }, { v: "reciente", t: "Recién creado", d: "Menos de 1 año" }, { v: "joven", t: "Joven", d: "De 1 a 3 años" }, { v: "consolidada", t: "Consolidado", d: "Más de 3 años" }] },
         { id: "forma", tipo: "chips", txt: "¿Con qué forma jurídica?", op: [{ v: "autonomo", t: "Autónomo" }, { v: "sociedad", t: "Sociedad (S.L., S.A.)" }, { v: "cooperativa", t: "Cooperativa o S. laboral" }] }
       ]},
       { t: "Dónde", q: [
@@ -518,7 +518,7 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
     ],
     asociacion: [
       { t: "Tu entidad", q: [
-        { g: "¡Hola! Soy Tico. Cuéntame a qué se dedica tu entidad para buscar las subvenciones adecuadas.", id: "finalidad", tipo: "chips", txt: "¿A qué se dedica principalmente?", op: [{ v: "social", t: "Acción social e inclusión" }, { v: "discapacidad", t: "Discapacidad o salud" }, { v: "mayores", t: "Personas mayores" }, { v: "juventud", t: "Juventud e infancia" }, { v: "educacion", t: "Educación (AMPA…)" }, { v: "cultura", t: "Cultura" }, { v: "deporte", t: "Deporte" }, { v: "medioambiente", t: "Medio ambiente" }, { v: "vecinal", t: "Vecinal / participación" }, { v: "cooperacion", t: "Cooperación internacional" }] },
+        { g: "¡Hola! Soy Polito. Cuéntame a qué se dedica tu entidad para buscar las subvenciones adecuadas.", id: "finalidad", tipo: "chips", txt: "¿A qué se dedica principalmente?", op: [{ v: "social", t: "Acción social e inclusión" }, { v: "discapacidad", t: "Discapacidad o salud" }, { v: "mayores", t: "Personas mayores" }, { v: "juventud", t: "Juventud e infancia" }, { v: "educacion", t: "Educación (AMPA…)" }, { v: "cultura", t: "Cultura" }, { v: "deporte", t: "Deporte" }, { v: "medioambiente", t: "Medio ambiente" }, { v: "vecinal", t: "Vecinal / participación" }, { v: "cooperacion", t: "Cooperación internacional" }] },
         { id: "ambitoEnt", tipo: "chips", txt: "¿Cuál es su ámbito de actuación según estatutos?", op: [{ v: "local", t: "Local o provincial" }, { v: "autonomico", t: "Autonómico" }, { v: "estatal", t: "Estatal" }] }
       ]},
       { t: "Dónde", q: [
@@ -603,7 +603,7 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
         <h1>Encuentra las ayudas que te tocan, <em>sello a sello</em>.</h1>
         <p class="lead">Responde a unas preguntas como si fuera un juego. Al final tendrás tu expediente: qué ayudas, becas y subvenciones de España encajan contigo, si el plazo está abierto hoy, qué documentos reunir y los pasos para pedirlas.</p>
         <div class="datos"><span>${KB.A.length} ayudas estatales, autonómicas y locales</span><span>Plazos revisados el ${KB.fmt(KB.IND.revisado)}</span><span>Tus respuestas no salen de tu navegador</span></div>
-        ${guiaHTML("guiaInicio", "¡Hola! Soy Tico, tu robot guía. Elige abajo tu personaje y te acompaño pregunta a pregunta hasta encontrar tus ayudas. Tardamos unos 3 minutos.", "feliz")}
+        ${guiaHTML("guiaInicio", "¡Hola! Soy Polito, tu robot guía. Elige abajo tu personaje y te acompaño pregunta a pregunta hasta encontrar tus ayudas. Tardamos unos 3 minutos.", "feliz")}
         ${S.p.tipo ? `<p style="margin-top:18px"><button class="btn pri" id="seguir" type="button">Continuar mi partida</button> <button class="btn link" id="borrar" type="button">Empezar de cero</button></p>` : ""}
       </div>
       <div class="stampbig">${selloSVG("AYUDAS · BECAS · SUBVENCIONES · ", 0)}</div>

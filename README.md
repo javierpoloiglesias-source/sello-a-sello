@@ -1,6 +1,6 @@
 # Sello a Sello · Buscador de ayudas sociales de España
 
-Juego guiado por Tico que perfila a personas, familias, asociaciones y empresas nuevas y recomienda ayudas, becas y subvenciones (estatales, autonómicas y locales) con documentos, pasos y estado del plazo.
+Juego guiado por Polito que perfila a personas, familias, asociaciones y empresas nuevas y recomienda ayudas, becas y subvenciones (estatales, autonómicas y locales) con documentos, pasos y estado del plazo.
 
 ## Estructura
 - `src/kb.js` — base de conocimiento (cada ayuda con enlace oficial, fecha de revisión y plazo).
@@ -15,7 +15,7 @@ Cada `push` a `main` compila la APK y la publica en **Releases → «Sello a Sel
 En el móvil: descarga `Sello-a-Sello.apk`, ábrela y permite instalar apps de origen desconocido.
 
 ## iPhone
-- **Sin Mac:** abre la web en Safari → Compartir → «Añadir a pantalla de inicio». Se instala con el icono de Tico, a pantalla completa y sin conexión.
+- **Sin Mac:** abre la web en Safari → Compartir → «Añadir a pantalla de inicio». Se instala con el icono de Polito, a pantalla completa y sin conexión.
 - **Con Mac (para la App Store):** `brew install xcodegen`, `python3 build.py`, `cd ios && xcodegen generate`, abre `SelloASello.xcodeproj`, elige tu equipo de firma (cuenta de Apple Developer, 99 €/año) y pulsa Run o Archive.
 
 ## Actualizar las ayudas
