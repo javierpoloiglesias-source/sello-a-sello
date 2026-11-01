@@ -592,6 +592,7 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
     else if (S.vista === "analisis") vAnalisis();
     else if (S.vista === "final") vFinal();
     else if (S.vista === "docs") vDocs();
+    else if (S.vista === "guia") vGuia();
     else vResultados();
     radar();
   }
@@ -856,7 +857,7 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
 
     app.innerHTML = `
     <p class="volver"><button class="btn sec" id="aMenu" type="button">← Menú final</button></p>
-    ${guiaHTML("guiaRes", "Pulsa cada ayuda para ver por qué te encaja, los documentos y los pasos. El botón «Ir a la web oficial» te lleva al trámite real.")}
+    ${guiaHTML("guiaRes", "Pulsa cada ayuda para ver por qué te encaja. Con «Conseguirla paso a paso» te acompaño hasta presentarla: papeles, dónde ir, qué pedir y la solicitud preparada para internet.")}
     <section class="res-hero">
       <div style="width:150px">${selloSVG("EXPEDIENTE · " + (c.n || "ESPAÑA").toUpperCase() + " · ", 99)}</div>
       <div><div class="eyebrow">Tu expediente · ${hoy.toLocaleDateString("es-ES")}</div>
@@ -895,6 +896,7 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
     <p class="aviso">Sello a Sello es una herramienta orientativa y gratuita. No es un organismo oficial ni tramita solicitudes: la concesión depende siempre de la resolución del organismo. Las cuantías son estimaciones con las cifras de 2026 (IPREM 600 €/mes, SMI 1.221 €/mes, IMV 733,60 €/mes). Comprueba requisitos y plazos en el enlace oficial de cada ayuda antes de solicitar. Tus respuestas se quedan en tu navegador.</p>`;
 
     app.querySelectorAll(".filtros button").forEach(b => b.onclick = () => { S.filtro = b.dataset.f; render(); });
+    app.querySelectorAll("[data-guia]").forEach(b => b.onclick = () => abrirGuia(b.dataset.guia));
     app.querySelectorAll(".docs input").forEach(i => i.onchange = () => {
       S.docs[i.dataset.k] = i.checked; guardar();
       const card = i.closest(".ay"); const all = card.querySelectorAll(".docs input"); const ok = [...all].filter(x => x.checked).length;
@@ -982,6 +984,7 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
     const opciones = [
       ["ya", "Pedir ya", `${cnt("ya")} ayudas abiertas hoy`],
       ["todas", "Ver todas mis ayudas", `${res.length} en total`],
+      ["guiar", "Conseguir mi primera ayuda paso a paso", "Polito te acompaña hasta presentarla"],
       ["docs", "Mi checklist de documentos", `${nDocs} documentos`],
       ["renta", "Ahorrar en la Renta", `${cnt("renta")} deducciones`],
       ["consultar", "Convocatorias de mi comunidad", `${cnt("consultar")} por revisar`],
@@ -1037,6 +1040,7 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
       if (["ya", "todas", "renta", "consultar", "preparar"].includes(k)) { S.filtro = k; S.vista = "resultados"; S.ir = null; }
       else if (k === "fuentes") { S.filtro = "todas"; S.vista = "resultados"; S.ir = "fuentes"; }
       else if (k === "docs") { S.vista = "docs"; }
+      else if (k === "guiar") { const primera = res.find(x => x.nivel !== "baja" && (x.est.k === "abierta" || x.est.k === "siempre")) || res[0]; if (primera) { abrirGuia(primera.a.id); return; } S.vista = "resultados"; }
       else if (k === "plan") {
         const txt = planTexto(p, res);
         navigator.clipboard.writeText(txt).then(() => { $("#copiadoF").textContent = "Plan de acción copiado. Pégalo donde quieras."; })
@@ -1083,6 +1087,152 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
     return p.menores ? "familias" : "personas";
   }
 
+  // ── Modo guiado paso a paso con Polito ──
+  // Dónde conseguir cada documento (por coincidencia de texto)
+  const DONDE_DOC = [
+    [/DNI o NIE|DNI de los socios|DNI de la persona/, "DNI: Policía Nacional con cita en citapreviadnie.es. NIE: Oficina de Extranjería o comisaría con cita previa.", "https://www.citapreviadnie.es/"],
+    [/empadronamiento/, "En la sede electrónica de tu ayuntamiento (busca «volante o certificado de empadronamiento») o en su oficina de atención ciudadana.", null],
+    [/Declaración de la Renta|imputaciones/, "Sede de la Agencia Tributaria > «Certificaciones» > «IRPF» (inmediato con Cl@ve).", "https://sede.agenciatributaria.gob.es/"],
+    [/titularidad de la cuenta/, "Desde la app o web de tu banco (suele estar en «Documentos» o «Certificados»), o en tu oficina.", null],
+    [/Cl@ve/, "Regístrate en clave.gob.es: por videollamada, con carta de invitación o en una oficina (Hacienda, Seguridad Social, SEPE).", "https://clave.gob.es/"],
+    [/vida laboral/, "Sede de la Seguridad Social > «Informe de vida laboral» (descarga inmediata) o por SMS al móvil.", "https://sede.seg-social.gob.es/"],
+    [/Libro de familia|nacimiento \/ matrimonio|registro civil/i, "Ministerio de Justicia > «Certificados de nacimiento / matrimonio» (online y gratis) o en tu Registro Civil.", "https://sede.mjusticia.gob.es/"],
+    [/discapacidad/, "Centro base o de valoración de la discapacidad de tu comunidad (si aún no lo tienes, pide allí la valoración).", null],
+    [/familia numerosa/, "Servicios sociales de tu comunidad: el título se pide online o en registro.", null],
+    [/Contrato de alquiler|recibos/, "Tu contrato firmado con el casero y los justificantes de transferencia de tu banco.", null],
+    [/Nóminas|ingresos/, "Tu empresa o el portal del empleado; para pensiones o paro, la sede de la Seguridad Social o del SEPE.", null],
+    [/al corriente/, "Certificados online en la sede de la AEAT y en la sede de la Seguridad Social (inmediatos con certificado digital).", "https://sede.agenciatributaria.gob.es/"],
+    [/Estatutos|acta fundacional|junta directiva|registro/i, "Registro de asociaciones donde está inscrita la entidad (Ministerio del Interior o tu comunidad).", "https://www.interior.gob.es/"],
+    [/036|037|Alta censal/, "Sede de la AEAT > «Censos» > modelo 036/037 (también lo hace una gestoría).", "https://sede.agenciatributaria.gob.es/"],
+    [/certificado energético|eficiencia energética/i, "Un técnico certificador (arquitecto o ingeniero) lo emite y lo registra en tu comunidad.", null],
+    [/Informe médico|informe de salud/i, "Pídelo en tu centro de salud a tu médico de cabecera.", null],
+    [/Memoria del proyecto|Plan de empresa|plan empresarial/i, "Lo redactas tú (o con ayuda de la cámara de comercio o la agencia de desarrollo local, gratis).", null]
+  ];
+  function dondeDoc(d) { for (const [re, txt, url] of DONDE_DOC) if (re.test(d)) return { txt, url }; return { txt: "Consulta la convocatoria o pregunta en el organismo.", url: null }; }
+
+  // Dónde se presenta según organismo
+  function canales(a, r) {
+    const o = a.org, c = KB.CCAA[S.p.ccaa] || {};
+    const sede = r.url;
+    if (/Seguridad Social|INSS|TGSS/.test(o)) return { online: "Sede electrónica de la Seguridad Social (o la web específica del trámite)", presencial: "Un CAISS (Centro de Atención e Información de la Seguridad Social) con cita previa, que se pide en seg-social.es o por teléfono.", cita: "https://www.seg-social.es/" };
+    if (/SEPE/.test(o)) return { online: "Sede electrónica del SEPE (con Cl@ve o con el formulario de pre-solicitud sin certificado)", presencial: "Tu oficina de prestaciones del SEPE con cita previa (web del SEPE o teléfono de cita de tu provincia).", cita: "https://www.sepe.es/" };
+    if (/Tributaria/.test(o)) return { online: "Sede de la Agencia Tributaria (Renta WEB o el modelo indicado)", presencial: "Oficina de la AEAT con cita previa (web de la AEAT o su teléfono de cita).", cita: "https://sede.agenciatributaria.gob.es/" };
+    if (/comercializadora|CNMC|Transición/.test(o) && a.id === "bonoluz") return { online: "Por email o en la web de una comercializadora de referencia (Energía XXI, Curenergía, Baser, CHC…)", presencial: "Oficina de la comercializadora de referencia o por teléfono / correo postal.", cita: null };
+    if (/IMSERSO|Dependencia/.test(o) || a.amb === "autonomico") return { online: `Sede electrónica de ${c.n || "tu comunidad"}`, presencial: "Centro de servicios sociales de tu ayuntamiento (pide cita) o cualquier oficina de registro público.", cita: c.web };
+    if (a.amb === "local") return { online: "Sede electrónica de tu ayuntamiento", presencial: "Centro de servicios sociales o registro de tu ayuntamiento, con cita previa.", cita: null };
+    if (/ENISA|CDTI|ICEX|Red\.es|FUNDAE|ICO|Cámara/.test(o)) return { online: `Plataforma online de ${o.split(" ")[0]} (solo por internet)`, presencial: "No hay atención presencial para presentar: si lo necesitas, una gestoría o la cámara de comercio te ayuda.", cita: null };
+    return { online: "Sede electrónica del organismo", presencial: "Cualquier oficina de registro público (ayuntamiento, Subdelegación del Gobierno…) con cita previa: vale para cualquier administración.", cita: "https://administracion.gob.es/" };
+  }
+
+  const PASOS_G = ["Empezamos", "Requisitos", "Documentos", "Dónde ir", "Qué pedir", "Hazlo por internet", "Después"];
+
+  function abrirGuia(id) { S.guiaId = id; S.guiaPaso = 0; S.vista = "guia"; SND.nivel(); render(); window.scrollTo(0, 0); }
+
+  function vGuia() {
+    const res = KB.evaluar(derivar(Object.assign({}, S.p)));
+    const r = res.find(x => x.a.id === S.guiaId);
+    if (!r) { S.vista = "resultados"; return render(); }
+    const a = r.a, e = r.est, k = S.guiaPaso || 0, nom = r.nombre || a.t;
+    S.req = S.req || {}; S.datos = S.datos || {}; S.estadoAy = S.estadoAy || {};
+    const can = canales(a, r);
+    let cuerpo = "", dice = "";
+    if (k === 0) {
+      dice = e.k === "cerrada" || e.k === "proxima"
+        ? `Vamos a por «${nom}». Ahora mismo está ${e.k === "cerrada" ? "cerrada" : "por abrir"}, así que te preparo todo para que la pidas el primer día. ${e.prox || ""}`
+        : `¡Vamos a por «${nom}»! Te llevo paso a paso: comprobar requisitos, reunir papeles, dónde ir, qué pedir y, si quieres, prepararla por internet.`;
+      cuerpo = `<p style="margin:0 0 10px">${esc(a.res)}</p><p><b>Cuantía:</b> ${esc(a.cuantia)}</p><p><b>Plazo:</b> ${esc(e.txt)}${e.nota ? " · " + esc(e.nota) : ""}</p><p><b>Organismo:</b> ${esc(a.org)}</p>`;
+    } else if (k === 1) {
+      dice = "Marca cada requisito que cumples. Si dudas en alguno, no pasa nada: te digo a quién preguntar.";
+      cuerpo = `<div class="doclista">${a.req.map((q, i) => { const key = a.id + ":" + i; return `<label><input type="checkbox" data-req="${key}" ${S.req[key] ? "checked" : ""}><span><span>${esc(q)}</span></span></label>`; }).join("")}</div>
+        <p class="ayuda" style="margin-top:12px">¿Dudas? Pregunta en ${esc(can.presencial.split(" con ")[0].toLowerCase())} o llama al 060 (información administrativa).</p>`;
+    } else if (k === 2) {
+      const ok = a.docs.filter((_, i) => S.docs[a.id + ":" + i]).length;
+      dice = ok === a.docs.length ? "¡Tienes todos los papeles! Pasamos a dónde presentarlos." : "Estos son los papeles. Debajo de cada uno te digo dónde conseguirlo. Márcalos según los tengas.";
+      cuerpo = `<div class="doclista">${a.docs.map((d, i) => { const key = a.id + ":" + i, w = dondeDoc(d); return `<label><input type="checkbox" data-doc="${key}" ${S.docs[key] ? "checked" : ""}><span><span>${esc(d)}</span><small>Dónde: ${esc(w.txt)}${w.url ? ` <a href="${w.url}" target="_blank" rel="noopener">Abrir ↗</a>` : ""}</small></span></label>`; }).join("")}</div>`;
+    } else if (k === 3) {
+      dice = "Puedes hacerlo por internet (más rápido) o en persona. Elige lo que te resulte más cómodo.";
+      cuerpo = `<div class="mas" style="margin:0;grid-template-columns:1fr 1fr">
+        <div class="panel"><h3>Por internet</h3><p style="margin:0 0 8px">${esc(can.online)}.</p><p class="ayuda" style="margin:0 0 10px">Necesitas Cl@ve, certificado digital o DNIe.</p>${r.url ? `<a class="btn pri" href="${esc(r.url)}" target="_blank" rel="noopener">Abrir la sede oficial ↗</a>` : ""}</div>
+        <div class="panel"><h3>En persona</h3><p style="margin:0 0 10px">${esc(can.presencial)}</p>${can.cita ? `<a class="btn sec" href="${esc(can.cita)}" target="_blank" rel="noopener">Pedir cita previa ↗</a>` : ""}</div></div>`;
+    } else if (k === 4) {
+      dice = "Esto es exactamente lo que tienes que pedir y presentar. Si vas en persona, puedes enseñar esta pantalla.";
+      cuerpo = `<div class="why" style="margin-bottom:14px"><b>Qué decir o buscar:</b> «Quiero solicitar ${esc(nom)}»${a.org ? ` (${esc(a.org)})` : ""}.</div>
+        <h4 style="font-family:var(--display);font-size:13px;text-transform:uppercase;color:var(--sello);margin:0 0 8px">Pasos</h4><ol>${a.pasos.map(x => `<li>${esc(x)}</li>`).join("")}</ol>
+        <h4 style="font-family:var(--display);font-size:13px;text-transform:uppercase;color:var(--sello);margin:14px 0 8px">Qué presentar</h4><ul>${a.docs.map(x => `<li>${esc(x)}</li>`).join("")}</ul>`;
+    } else if (k === 5) {
+      dice = "Te dejo la solicitud preparada: rellena tus datos una vez y te los doy listos para copiar y pegar en la sede. La firma y el envío final los haces tú con tu Cl@ve: la ley no permite que nadie lo haga sin tu identidad digital o tu autorización.";
+      const D_ = S.datos, campo = (id, t, ph, tipo = "text") => `<label style="display:grid;gap:4px;font-size:14px"><span>${t}</span><input class="texto" style="max-width:none" id="d-${id}" data-d="${id}" type="${tipo}" placeholder="${ph}" value="${esc(D_[id] || "")}"></label>`;
+      cuerpo = `<form id="fdatos" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px">
+          ${campo("nombre", "Nombre y apellidos", "María López García")}${campo("dni", "DNI / NIE", "12345678Z")}
+          ${campo("direccion", "Dirección", "C/ Mayor 1, 2.º B")}${campo("cp", "Código postal y municipio", `28001 ${S.p.municipio || ""}`)}
+          ${campo("tel", "Teléfono", "600 000 000", "tel")}${campo("email", "Email", "tu@email.es", "email")}
+          ${campo("iban", "IBAN (para cobrar)", "ES00 0000 0000 0000 0000 0000")}
+        </form>
+        <p class="ayuda" style="margin:8px 0 14px;font-size:14px">Tus datos se guardan solo en este dispositivo. <button type="button" class="btn link" id="borrarDatos" style="padding:0">Borrar mis datos</button></p>
+        <div class="panel" style="margin-bottom:12px"><h3>1 · Pega tus datos en la sede</h3><div id="copiables" class="ficha"></div>
+          ${r.url ? `<p style="margin:10px 0 0"><a class="btn pri" href="${esc(r.url)}" target="_blank" rel="noopener">Abrir la sede y empezar ↗</a></p>` : ""}</div>
+        <div class="panel" style="margin-bottom:12px"><h3>2 · Si no encuentras el formulario: escrito para el Registro Electrónico General</h3>
+          <p class="ayuda" style="margin:0 0 8px;font-size:14px">Sirve para presentar ante cualquier administración. Entra en el Registro Electrónico General con tu Cl@ve, elige el organismo «${esc(a.org)}», pega este texto y adjunta los documentos.</p>
+          <textarea id="escrito" readonly style="width:100%;min-height:200px;border:1px solid var(--line);border-radius:12px;padding:10px;background:var(--paper);font-size:13px"></textarea>
+          <p style="margin:8px 0 0;display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn sec" id="copEscrito">Copiar escrito</button><a class="btn sec" href="https://rec.redsara.es/" target="_blank" rel="noopener">Abrir Registro Electrónico ↗</a></p></div>
+        <div class="panel"><h3>3 · ¿Quieres que lo presente otra persona por ti?</h3>
+          <p style="margin:0">Un familiar, una gestoría o servicios sociales pueden presentarlo en tu nombre si les das un <b>apoderamiento</b> en el Registro Electrónico de Apoderamientos (gratis, online o en una oficina de registro). Servicios sociales de tu ayuntamiento también te ayudan a rellenarlo sin coste.</p>
+          <p style="margin:10px 0 0"><a class="btn sec" href="https://administracion.gob.es/" target="_blank" rel="noopener">Apoderamientos en administracion.gob.es ↗</a></p></div>`;
+    } else {
+      const hecha = S.estadoAy[a.id] === "presentada";
+      dice = hecha ? "¡Solicitud presentada! Guarda bien el justificante. Yo te recuerdo lo que viene ahora." : "Cuando la presentes, marca el botón y te sumo puntos. Esto es lo que pasa después:";
+      cuerpo = `<ul><li>Guarda el <b>justificante de registro</b> (PDF con número de entrada): es tu prueba de que la pediste en plazo.</li>
+        <li>Revisa tus notificaciones electrónicas (Carpeta Ciudadana o la sede del organismo) y tu email: si falta un papel te darán normalmente <b>10 días hábiles</b> para aportarlo.</li>
+        <li>Si pasa el plazo de resolución sin respuesta, puedes reclamar o consultar el estado en la misma sede.</li>
+        <li>Si te la deniegan, la resolución indica cómo recurrir (normalmente 1 mes).</li></ul>
+        <p style="margin:14px 0 0"><button type="button" class="btn pri" id="presentada" ${hecha ? "disabled" : ""}>${hecha ? "Presentada ✓" : "¡Ya la he presentado!"}</button>
+        <a class="btn sec" href="https://carpetaciudadana.gob.es/" target="_blank" rel="noopener">Carpeta Ciudadana ↗</a></p>`;
+    }
+    app.innerHTML = `<p class="volver"><button class="btn sec" id="gVolver" type="button">← Mis ayudas</button></p>
+      ${guiaHTML("guia", "")}
+      <section class="tablero entra" style="margin-bottom:40px">
+        <div class="eyebrow">Misión «${esc(nom)}» · paso ${k + 1} de ${PASOS_G.length} · ${PASOS_G[k]}</div>
+        <div class="xp" style="margin:10px 0 18px"><i style="width:${Math.round(100 * (k + 1) / PASOS_G.length)}%"></i></div>
+        <h2 style="margin-bottom:14px">${PASOS_G[k]}</h2>
+        ${cuerpo}
+        <div class="acciones"><button class="btn link" id="gAtras" type="button">← Atrás</button>
+          ${k < PASOS_G.length - 1 ? `<button class="btn pri" id="gSig" type="button">Siguiente paso →</button>` : `<button class="btn pri" id="gFin" type="button">Volver a mis ayudas</button>`}</div>
+      </section>`;
+    decir(dice, k === 6 && S.estadoAy[a.id] === "presentada" ? "feliz celebra" : k === 0 ? "feliz" : "");
+    $("#gVolver").onclick = () => { S.vista = "resultados"; render(); };
+    $("#gAtras").onclick = () => { if (k === 0) { S.vista = "resultados"; } else S.guiaPaso = k - 1; SND.pasar(); render(); };
+    const sig = $("#gSig"); if (sig) sig.onclick = () => { S.guiaPaso = k + 1; S.pts = (S.pts || 0) + 50; flotante(sig, "+50"); estrellas(sig, 10); SND.ok(2); render(); window.scrollTo(0, 0); };
+    const fin = $("#gFin"); if (fin) fin.onclick = () => { S.vista = "resultados"; render(); };
+    app.querySelectorAll("[data-req]").forEach(i => i.onchange = () => { S.req[i.dataset.req] = i.checked; if (i.checked) { SND.ok(1); estrellas(i, 6); } guardar(); });
+    app.querySelectorAll("[data-doc]").forEach(i => i.onchange = () => { S.docs[i.dataset.doc] = i.checked; if (i.checked) { SND.moneda(); estrellas(i, 8); S.pts = (S.pts || 0) + 50; } guardar(); });
+    const pres = $("#presentada"); if (pres) pres.onclick = () => { S.estadoAy[a.id] = "presentada"; S.pts = (S.pts || 0) + 1000; SND.victoria(); for (let i = 0; i < 3; i++) setTimeout(() => estrellas(pres, 18), i * 200); render(); };
+    if (k === 5) {
+      const pinta = () => {
+        const d = S.datos, L = [["Nombre y apellidos", d.nombre], ["DNI / NIE", d.dni], ["Dirección", d.direccion], ["Código postal y municipio", d.cp], ["Teléfono", d.tel], ["Email", d.email], ["IBAN", d.iban]].filter(x => x[1]);
+        $("#copiables").innerHTML = L.length ? L.map(([t, v], i) => `<span style="display:flex;gap:8px;align-items:center;justify-content:space-between;border-bottom:1px dashed var(--line);padding:4px 0">${esc(t)}: <b>${esc(v)}</b><button type="button" class="btn link" data-cp="${i}" style="padding:2px 4px">Copiar</button></span>`).join("") : "<span>Rellena el formulario de arriba y aquí aparecerán tus datos listos para copiar.</span>";
+        $("#copiables").querySelectorAll("[data-cp]").forEach(b => b.onclick = () => { navigator.clipboard.writeText(L[+b.dataset.cp][1]).then(() => { b.textContent = "Copiado ✓"; SND.ok(1); }).catch(() => { b.textContent = "Selecciónalo y copia"; }); });
+        const hoy = new Date().toLocaleDateString("es-ES");
+        $("#escrito").value = `${d.nombre || "[Nombre y apellidos]"}, con DNI/NIE ${d.dni || "[DNI/NIE]"}, domicilio en ${d.direccion || "[dirección]"}, ${d.cp || "[CP y municipio]"}, teléfono ${d.tel || "[teléfono]"} y correo electrónico ${d.email || "[email]"} a efectos de notificaciones,
+
+EXPONE:
+Que cumple los requisitos establecidos para acceder a «${nom}» (${a.org}), según la normativa vigente (${a.fuente}).
+Que adjunta la siguiente documentación:
+${a.docs.map(x => "- " + x).join("\n")}
+
+SOLICITA:
+Que se admita esta solicitud y se le conceda «${nom}»${d.iban ? `, con abono en la cuenta ${d.iban}` : ""}.
+
+En ${(d.cp || "").replace(/^\d+\s*/, "") || "[municipio]"}, a ${hoy}.
+Firmado: ${d.nombre || "[Nombre y apellidos]"}`;
+      };
+      app.querySelectorAll("[data-d]").forEach(i => i.oninput = () => { S.datos[i.dataset.d] = i.value.trim(); guardar(); pinta(); });
+      $("#fdatos").onsubmit = ev => ev.preventDefault();
+      $("#borrarDatos").onclick = () => { S.datos = {}; guardar(); render(); };
+      $("#copEscrito").onclick = () => { const t = $("#escrito"); navigator.clipboard.writeText(t.value).then(() => { $("#copEscrito").textContent = "Escrito copiado ✓"; SND.ok(2); }).catch(() => { t.select(); }); };
+      pinta();
+    }
+  }
+
   function tarjeta(r) {
     const a = r.a, e = r.est;
     const docs = a.docs.map((d, i) => { const k = a.id + ":" + i; return `<li><label><input type="checkbox" data-k="${k}" ${S.docs[k] ? "checked" : ""}><span>${esc(d)}</span></label></li>`; }).join("");
@@ -1091,7 +1241,7 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
       <summary>
         <div><h3>${esc(r.nombre || a.t)}</h3><div class="org">${esc(a.org)}</div></div>
         <div class="imp">${r.imp ? eur(r.imp) + "<small>estimado/año</small>" : ""}</div>
-        <div class="tags"><span class="tag ${e.k}">${esc(e.txt)}</span><span class="tag ${r.nivel}">${NIVEL[r.nivel]}</span><span class="tag">${AMB[a.amb]}</span></div>
+        <div class="tags"><span class="tag ${e.k}">${esc(e.txt)}</span><span class="tag ${r.nivel}">${NIVEL[r.nivel]}</span>${(S.estadoAy || {})[a.id] === "presentada" ? `<span class="tag abierta">Presentada ✓</span>` : ""}<span class="tag">${AMB[a.amb]}</span></div>
       </summary>
       <div class="cuerpo">
         <div class="full why"><b>Por qué te encaja:</b> ${r.why.map(esc).join(". ")}.</div>
@@ -1100,7 +1250,8 @@ input[type=range] { width: 100%; accent-color: var(--sello); height: 32px; }
         <div><h4>Requisitos a comprobar</h4><ul>${a.req.map(x => `<li>${esc(x)}</li>`).join("")}</ul></div>
         <div><h4>Documentos <span class="progreso">${listos}/${a.docs.length} listos</span></h4><ul class="docs">${docs}</ul></div>
         <div class="full"><h4>Pasos para solicitarla</h4><ol>${a.pasos.map(x => `<li>${esc(x)}</li>`).join("")}</ol></div>
-        <div class="full pie"><span>Fuente: ${esc(a.fuente)} · revisado el ${KB.fmt(a.ver)}</span>${r.url ? `<a class="btn pri" href="${esc(r.url)}" target="_blank" rel="noopener">Ir a la web oficial ↗</a>` : ""}</div>
+        <div class="full" style="display:flex;gap:10px;flex-wrap:wrap"><button type="button" class="btn pri" data-guia="${a.id}">${(S.estadoAy || {})[a.id] === "presentada" ? "Presentada ✓ · ver seguimiento" : "Conseguirla paso a paso con Polito →"}</button>${r.url ? `<a class="btn sec" href="${esc(r.url)}" target="_blank" rel="noopener">Ir a la web oficial ↗</a>` : ""}</div>
+        <div class="full pie"><span>Fuente: ${esc(a.fuente)} · revisado el ${KB.fmt(a.ver)}</span></div>
       </div>
     </details>`;
   }
